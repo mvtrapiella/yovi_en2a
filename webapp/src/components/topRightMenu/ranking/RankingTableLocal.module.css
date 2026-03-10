@@ -1,0 +1,72 @@
+/* RankingTableLocal.module.css */
+
+.rankingContainer {
+  display: flex;
+  flex-direction: column;
+  height: 100%; 
+  min-height: 0; /* Allows shrinking to trigger scroll */
+  width: 100%;
+}
+
+.rankingSubtitle {
+  text-align: center;
+  color: var(--primary-color, #007bff);
+  margin-bottom: 1.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1rem;
+}
+
+/* SCROLLABLE DATA LIST */
+.rankingList {
+  flex: 1; 
+  overflow-y: auto;
+  min-height: 0;
+  padding-right: 0.5rem;
+}
+
+/* Custom Scrollbar Styles */
+.rankingList::-webkit-scrollbar { width: 6px; }
+.rankingList::-webkit-scrollbar-thumb {
+  background: var(--primary-color, #007bff);
+  border-radius: 10px;
+}
+
+/* GRID LAYOUT: 1fr (P1) | 3rem (VS) | 1fr (P2) | 5rem (RESULT) */
+.rankingHeaderRow,
+.rankingItem {
+  display: grid;
+  grid-template-columns: 1fr 3rem 1fr 5rem;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+}
+
+.rankingHeaderRow {
+  font-weight: 700;
+  color: #888;
+  border-bottom: 0.125rem solid rgba(255, 255, 255, 0.1);
+  padding-right: calc(1rem + 6px); /* Align with scrollable items */
+}
+
+.rankingItem {
+  border-bottom: 0.0625rem solid rgba(255, 255, 255, 0.05);
+}
+
+.rankName {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.vsLabel {
+  text-align: center;
+  font-style: italic;
+  font-weight: 800;
+  color: #555;
+}
+
+.rankTime {
+  text-align: right;
+  font-weight: bold;
+  color: var(--primary-color, #007bff);
+}

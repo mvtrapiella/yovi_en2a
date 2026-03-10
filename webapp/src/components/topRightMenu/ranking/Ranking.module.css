@@ -1,0 +1,96 @@
+/* Ranking.module.css */
+
+.rankingBody {
+  display: flex;
+  flex-direction: column; 
+  background: #181818;
+  /* Prevents the body from growing beyond the modal boundaries */
+  overflow: hidden;
+}
+
+.rankingPanel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  /* CRITICAL: min-height 0 allows the container to shrink within 
+     a flexbox to trigger the child's scrollbar */
+  min-height: 0;
+  height: 100%; 
+}
+
+.rankingNavHeader {
+  padding: 1rem 2rem;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.01);
+  border-bottom: 0.0625rem solid rgba(255, 255, 255, 0.05);
+}
+
+.rankingTabs {
+  display: flex;
+  gap: 1rem;
+}
+
+.rankingTabBtn {
+  border: 0.0625rem solid rgba(255, 255, 255, 0.1);
+  color: #bbb; 
+  background: transparent;
+  padding: 0.6rem 1.8rem;
+  border-radius: 0.4rem;
+  cursor: pointer;
+  font-weight: 800;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.1rem;
+  transition: all 0.2s ease;
+}
+
+.rankingTabBtn.active {
+  background: var(--primary-color);
+  color: #000;
+  border-color: var(--primary-color);
+}
+
+.rankingContent {
+  flex: 1;
+  padding: 1.5rem 2rem;
+  display: flex;
+  flex-direction: column;
+  /* Required to allow the internal list to scroll properly */
+  min-height: 0;
+  overflow: hidden; 
+}
+
+.closeButton {
+  background: transparent;
+  border: none;
+  color: #555;
+  font-size: 1.2rem;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.closeButton:hover {
+  color: #ff4444;
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 48rem) {
+  .rankingNavHeader {
+    padding: 0.5rem 1rem; 
+  }
+
+  .rankingTabs {
+    gap: 0.5rem;
+    overflow-x: auto; 
+  }
+
+  .rankingTabBtn {
+    padding: 0.5rem 1rem; 
+    font-size: 0.7rem;      
+  }
+}

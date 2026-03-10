@@ -24,9 +24,8 @@ RUN apt-get update && \
 
 # Copy the compiled binary from the builder stage
 COPY --from=builder /app/game_manager/target/release/game_manager .
-COPY --from=builder /app/game_manager/.env ./.env
 COPY --from=builder /app/game_manager/.secrets/ ./.secrets/
-
+COPY --from=builder /app/game_manager/.env ./.env
 EXPOSE 5000
 
 CMD ["./game_manager", "--mode", "server", "--port", "5000"]

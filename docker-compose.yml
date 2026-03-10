@@ -63,7 +63,6 @@ services:
       - monitor-net
 
   game_manager:
-    build: ./game_manager
     container_name: game_manager
     image: ghcr.io/arquisoft/yovi_en2a-gamemanager:latest
     expose:
@@ -90,7 +89,6 @@ services:
       - redis_data:/data
 
   auth-engine:
-    build: ./userAuthentification
     image: ghcr.io/arquisoft/yovi_en2a-auth-engine:latest
     container_name: userAuthentification
     expose:

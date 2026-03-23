@@ -1,11 +1,13 @@
 use crate::{Coordinates, GameStatus, GameY, Movement, PlayerId, YBot};
+use std::collections::{HashMap, HashSet, VecDeque};
 
 pub const MINIMAX_DEPTH_EASY:   u32 = 2;
 pub const MINIMAX_DEPTH_MEDIUM: u32 = 4;
 pub const MINIMAX_DEPTH_HARD:   u32 = 6;
 
-const WIN_SCORE:  i32 = 1_000_000;
-const LOSS_SCORE: i32 = -1_000_000;
+const WIN_SCORE:   i32 = 1000000;
+const LOSS_SCORE:  i32 = -1000000;
+const UNREACHABLE: i32 = 1000; 
 
 pub struct MinimaxBot { depth: u32 }
 
@@ -24,9 +26,9 @@ impl YBot for MinimaxBot {
             return board.available_cells().first()
                 .map(|&idx| Coordinates::from_index(idx, board.board_size()));
         }
-
+        
         let (mut best_score, mut best_move, mut alpha) = (i32::MIN, None, i32::MIN);
-        for &idx in board.available_cells() {
+        for idx in candidate_cells(board) {
             let coords: Coordinates = Coordinates::from_index(idx, board.board_size());
             let mut child: GameY = board.clone();
             let _ = child.add_move(Movement::Placement { player: bot, coords });
@@ -41,19 +43,20 @@ impl YBot for MinimaxBot {
     }
 }
 
+
 fn minimax(board: &GameY, depth: u32, mut alpha: i32, mut beta: i32, maximizing: bool, bot: PlayerId) -> i32 {
     if board.check_game_over() {
         return match board.status() {
             GameStatus::Finished { winner } => if *winner == bot { WIN_SCORE } else { LOSS_SCORE },
-            GameStatus::Ongoing { .. } => 0,
+            GameStatus::Ongoing { .. } => evaluate(board, bot),
         };
     }
-    if depth == 0 || board.available_cells().is_empty() { return 0; }
+    if depth == 0 || board.available_cells().is_empty() { return evaluate(board, bot); }
 
-    let player = match board.next_player() { Some(p) => p, None => return 0 };
+    let player = match board.next_player() { Some(p) => p, None => return evaluate(board, bot) };
     let mut best = if maximizing { i32::MIN } else { i32::MAX };
 
-    for &idx in board.available_cells() {
+    for idx in candidate_cells(board) {
         let coords = Coordinates::from_index(idx, board.board_size());
         let mut child = board.clone();
         let _ = child.add_move(Movement::Placement { player, coords });
@@ -70,6 +73,140 @@ fn minimax(board: &GameY, depth: u32, mut alpha: i32, mut beta: i32, maximizing:
         if alpha >= beta { break; }
     }
     best
+}
+
+
+fn evaluate(board: &GameY, bot: PlayerId) -> i32 {
+    let opp = other_player(bot);
+
+    let bot_passable = passable_cells(board, bot);
+    let opp_passable = passable_cells(board, opp);
+    let bot_groups   = connected_groups(board, bot);
+    let opp_groups   = connected_groups(board, opp);
+
+    let bot_score = position_score(&bot_groups, &bot_passable);
+    let opp_score = position_score(&opp_groups, &opp_passable);
+
+    opp_score - bot_score
+}
+
+fn position_score(groups: &[Vec<Coordinates>], passable: &HashSet<Coordinates>) -> i32 {
+    if groups.is_empty() { return UNREACHABLE * 3; }
+
+    groups.iter().map(|group| {
+        let distance_a = dist_to_side(group, 0, passable);
+        let distance_b = dist_to_side(group, 1, passable);
+        let distance_c = dist_to_side(group, 2, passable);
+        distance_a + distance_b + distance_c
+    }).min().unwrap_or(UNREACHABLE * 3)
+}
+
+fn passable_cells(board: &GameY, player: PlayerId) -> HashSet<Coordinates> {
+    let size = board.board_size();
+    (0..size*(size+1)/2)
+        .map(|idx| Coordinates::from_index(idx, size))
+        .filter(|c| {
+            let owner = board.cell_owner(c);
+            owner.is_none() || owner == Some(player)
+        })
+        .collect()
+}
+
+fn connected_groups(board: &GameY, player: PlayerId) -> Vec<Vec<Coordinates>> {
+    let size = board.board_size();
+    let available: HashSet<u32> = board.available_cells().iter().copied().collect();
+    let owned: HashSet<Coordinates> = (0..size*(size+1)/2)
+        .map(|idx| Coordinates::from_index(idx, size))
+        .filter(|c| !available.contains(&c.to_index(size)) && board.cell_owner(c) == Some(player))
+        .collect();
+
+    let mut visited: HashSet<Coordinates> = HashSet::new();
+    let mut groups = Vec::new();
+
+    for &cell in &owned {
+        if visited.contains(&cell) { continue; }
+        let mut group = Vec::new();
+        let mut queue = VecDeque::from([cell]);
+        visited.insert(cell);
+        while let Some(cur) = queue.pop_front() {
+            group.push(cur);
+            for n in neighbours(&cur) {
+                if owned.contains(&n) && visited.insert(n) { queue.push_back(n); }
+            }
+        }
+        groups.push(group);
+    }
+    groups
+}
+
+
+fn dist_to_side(group: &[Coordinates], side: u8, passable: &HashSet<Coordinates>) -> i32 {
+    let group_set: HashSet<Coordinates> = group.iter().copied().collect();
+    let mut dist: HashMap<Coordinates, i32> = HashMap::new();
+    let mut deque: VecDeque<Coordinates> = VecDeque::new();
+    let mut visited: HashSet<Coordinates> = HashSet::new();
+
+    for &cell in group {
+        dist.insert(cell, 0);
+        deque.push_front(cell);
+    }
+
+    while let Some(current) = deque.pop_front() {
+        if !visited.insert(current) { continue; }
+        let current_dist = dist[&current];
+
+        let on_side = match side {
+            0 => current.touches_side_a(),
+            1 => current.touches_side_b(),
+            _ => current.touches_side_c(),
+        };
+        if on_side { return current_dist; }
+
+        for neighbour in neighbours(&current) {
+            if !passable.contains(&neighbour) || visited.contains(&neighbour) { continue; }
+            let cost = if group_set.contains(&neighbour) { 0 } else { 1 };
+            let new_dist = current_dist + cost;
+            if new_dist < *dist.get(&neighbour).unwrap_or(&UNREACHABLE) {
+                dist.insert(neighbour, new_dist);
+                if cost == 0 { deque.push_front(neighbour); } else { deque.push_back(neighbour); }
+            }
+        }
+    }
+    UNREACHABLE
+}
+
+fn candidate_cells(board: &GameY) -> Vec<u32> {
+    let size = board.board_size();
+    let available: HashSet<u32> = board.available_cells().iter().copied().collect();
+
+    let occupied: HashSet<Coordinates> = (0..size*(size+1)/2)
+        .map(|index| Coordinates::from_index(index, size))
+        .filter(|c| !available.contains(&c.to_index(size)))
+        .collect();
+
+    if occupied.is_empty() {
+        return board.available_cells().clone();
+    }
+
+    board.available_cells().iter().copied()
+        .filter(|&idx| {
+            let c = Coordinates::from_index(idx, size);
+            neighbours(&c).iter().any(|n| occupied.contains(n))
+        })
+        .collect()
+}
+
+fn other_player(player: PlayerId) -> PlayerId {
+    if player.id() == 0 { PlayerId::new(1) } else { PlayerId::new(0) }
+}
+
+fn neighbours(c: &Coordinates) -> Vec<Coordinates> {
+    let (x, y, z) = (c.x(), c.y(), c.z());
+    let mut neighbours = Vec::with_capacity(6);
+    if x > 0 { neighbours.push(Coordinates::new(x-1,y+1,z)); neighbours.push(Coordinates::new(x-1,y,z+1)); }
+    if y > 0 { neighbours.push(Coordinates::new(x+1,y-1,z)); neighbours.push(Coordinates::new(x,y-1,z+1)); }
+    if z > 0 { neighbours.push(Coordinates::new(x+1,y,z-1)); neighbours.push(Coordinates::new(x,y+1,z-1)); }
+    neighbours
 }
 
 #[cfg(test)]

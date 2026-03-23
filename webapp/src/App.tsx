@@ -6,6 +6,7 @@ import SelectionWindow from './components/gameSelection/SelectionWindow';
 import LoginForm from './components/auth/LoginForm';
 import RegisterForm from './components/auth/RegisterForm';
 import GameWindow from './components/gameWindow/GameWindow';
+import ProtectedRoute from './components/ProtectedRoute';
 
 
 function App() {
@@ -15,8 +16,8 @@ function App() {
         <Route path="/" element={<MainMenu />} />
         <Route path="/login" element={<LoginForm/>}/>
         <Route path="/register" element={<RegisterForm/>}/>
-        <Route path="/gameSelection" element={<SelectionWindow/>}/>
-        <Route path="/play/:size/:mode" element={<GameWindow/>}/>
+        <Route path="/gameSelection" element={<ProtectedRoute><SelectionWindow/></ProtectedRoute>}/>
+        <Route path="/play/:size/:mode" element={<ProtectedRoute><GameWindow/></ProtectedRoute>}/>
       </Routes>
     </Router>
   );

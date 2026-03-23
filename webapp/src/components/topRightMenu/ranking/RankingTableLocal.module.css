@@ -16,19 +16,12 @@
   letter-spacing: 0.1rem;
 }
 
-/* SCROLLABLE DATA LIST */
+/* DATA LIST */
 .rankingList {
-  flex: 1; 
-  overflow-y: auto;
+  flex: 1;
   min-height: 0;
+  overflow: hidden;
   padding-right: 0.5rem;
-}
-
-/* Custom Scrollbar Styles */
-.rankingList::-webkit-scrollbar { width: 6px; }
-.rankingList::-webkit-scrollbar-thumb {
-  background: var(--primary-color, #007bff);
-  border-radius: 10px;
 }
 
 /* GRID LAYOUT: 1fr (P1) | 3rem (VS) | 1fr (P2) | 5rem (RESULT) */

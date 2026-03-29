@@ -23,6 +23,7 @@ pub async fn register_user(
     // Try reading the user first to see if it already exists.
     // If it exists, registration should fail.
     if let Ok(_) = read_db::<User>("Users", email).await {
+        println!("[AUTH] Registration failed for [{}]: email already in use", email);
         return Err("User already exists".into());
     }
 
@@ -58,15 +59,23 @@ pub async fn login_user(
     password: &str,
 ) -> Result<User, Box<dyn Error>> {
 
-    // Fetch user from Firestore
-    let user = read_db::<User>("Users", email).await?;
+    // Fetch user from Firestore. If not found, return the same error as a wrong
+    // password to avoid revealing whether an email is registered (user enumeration).
+    let user = match read_db::<User>("Users", email).await {
+        Ok(u) => u,
+        Err(e) => {
+            println!("[AUTH] Login failed for [{}]: user not found ({})", email, e);
+            return Err("Invalid email or password".into());
+        }
+    };
 
     // Verify the password
     if verify_password(password, &user.password_hash)? {
-        println!("User [{}] logged in successfully.", email);
+        println!("[AUTH] Login successful for [{}]", email);
         Ok(user)
     } else {
-        Err("Invalid password".into())
+        println!("[AUTH] Login failed for [{}]: wrong password", email);
+        Err("Invalid email or password".into())
     }
 }
 

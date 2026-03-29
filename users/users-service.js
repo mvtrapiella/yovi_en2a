@@ -6,9 +6,40 @@ const YAML = require('js-yaml');
 const promBundle = require('express-prom-bundle');
 const crypto = require('node:crypto');
 const cookieParser = require('cookie-parser');
+const Redis = require('ioredis');
 
 const app = express();
 const port = 3000;
+
+// --- Redis client for server-side session storage ---
+const redisClient = new Redis({
+  host: process.env.REDIS_HOST || 'localhost',
+  port: parseInt(process.env.REDIS_PORT || '6379'),
+  lazyConnect: true,       // don't connect until first command (safe for tests)
+  enableOfflineQueue: false // reject immediately if Redis is down, don't queue
+});
+
+redisClient.on('error', (err) => {
+  console.error('Redis error:', err.message);
+});
+
+const SESSION_TTL_SECONDS = 1800; // 30 minutes
+
+async function createSession(userData) {
+  const sessionId = crypto.randomUUID();
+  await redisClient.setex(`session:${sessionId}`, SESSION_TTL_SECONDS, JSON.stringify(userData));
+  return sessionId;
+}
+
+async function getSession(sessionId) {
+  if (!sessionId) return null;
+  const data = await redisClient.get(`session:${sessionId}`);
+  return data ? JSON.parse(data) : null;
+}
+
+async function destroySession(sessionId) {
+  if (sessionId) await redisClient.del(`session:${sessionId}`);
+}
 
 // 1. Initialize cookie parser before anything else
 app.use(cookieParser());
@@ -28,7 +59,7 @@ app.use((req, res, next) => {
 
   if (allowedOrigins.has(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin);
-    // Credentials (cookies) require a specific origin, never a wildcard
+    // Credentials (cookies) require a specific origin
     res.setHeader('Access-Control-Allow-Credentials', 'true');
   } else if (!origin && process.env.NODE_ENV !== 'production') {
     // Allows server-to-server or Postman requests in dev.
@@ -57,7 +88,6 @@ try {
 app.use(express.json());
 
 // --- 6. CSRF VERIFICATION MIDDLEWARE ---
-// Defined here so it can be used by the local endpoints below
 const verifyCsrf = (req, res, next) => {
   if (['GET', 'OPTIONS', 'HEAD'].includes(req.method)) return next();
 
@@ -72,13 +102,13 @@ const verifyCsrf = (req, res, next) => {
   next();
 };
 
-// Cookie options shared across login/register/logout
+// Cookie options for the session ID cookie (stores no user data, just an opaque ID)
 const SESSION_COOKIE_OPTIONS = {
-  httpOnly: true,                                    // JS cannot read this cookie
-  secure: process.env.NODE_ENV === 'production',     // HTTPS only in production
+  httpOnly: true,                                        // JS cannot read this cookie
+  secure: process.env.NODE_ENV === 'production',         // HTTPS only in production
   sameSite: 'lax',
   path: '/',
-  maxAge: 1800000                                    // 30 minutes in milliseconds
+  maxAge: SESSION_TTL_SECONDS * 1000                     // 30 minutes in milliseconds
 };
 
 // --- 7. LOCAL ENDPOINTS ---
@@ -95,25 +125,30 @@ app.get('/api/csrf-token', (req, res) => {
   res.json({ csrfToken });
 });
 
-// SESSION READ — returns the current user from the httpOnly cookie
-app.get('/api/me', (req, res) => {
-  const userCookie = req.cookies.user;
-  if (!userCookie) return res.status(401).json({ error: 'Not authenticated' });
+// SESSION READ — looks up the session in Redis by the cookie session ID
+app.get('/api/me', async (req, res) => {
+  const sessionId = req.cookies.sessionId;
+  if (!sessionId) return res.status(401).json({ error: 'Not authenticated' });
   try {
-    res.json(JSON.parse(userCookie));
+    const user = await getSession(sessionId);
+    if (!user) return res.status(401).json({ error: 'Session expired or invalid' });
+    res.json(user);
   } catch {
-    res.status(401).json({ error: 'Invalid session' });
+    res.status(500).json({ error: 'Session store unavailable' });
   }
 });
 
-// LOGOUT — clears the httpOnly session cookie
-app.post('/api/logout', verifyCsrf, (req, res) => {
-  res.clearCookie('user', { path: '/', httpOnly: true, sameSite: 'lax' });
+// LOGOUT — deletes the session from Redis and clears the cookie
+app.post('/api/logout', verifyCsrf, async (req, res) => {
+  const sessionId = req.cookies.sessionId;
+  await destroySession(sessionId);
+  res.clearCookie('sessionId', { path: '/', httpOnly: true, sameSite: 'lax' });
   res.json({ message: 'Logged out' });
 });
 
-// LOGIN — calls auth service, sets httpOnly cookie on success
+// LOGIN — calls auth service, creates server-side session in Redis on success
 app.post('/api/login', verifyCsrf, async (req, res) => {
+  const { email } = req.body;
   try {
     const response = await fetch(`${AUTH_URL}/login`, {
       method: 'POST',
@@ -122,16 +157,25 @@ app.post('/api/login', verifyCsrf, async (req, res) => {
     });
     const data = await response.json();
     if (response.ok) {
-      res.cookie('user', JSON.stringify({ username: data.username, email: data.email }), SESSION_COOKIE_OPTIONS);
+      const sessionId = await createSession({ username: data.username, email: data.email });
+      res.cookie('sessionId', sessionId, SESSION_COOKIE_OPTIONS);
+      console.log(`[LOGIN] Success: ${email}`);
+    } else {
+      console.warn(`[LOGIN] Failed for ${email} — HTTP ${response.status}: ${data.error}`);
+      data.error = response.status === 401
+        ? 'Invalid email or password.'
+        : 'Login failed. Please try again.';
     }
     res.status(response.status).json(data);
   } catch (err) {
-    res.status(500).json({ error: 'Auth service unavailable' });
+    console.error(`[LOGIN] Error for ${email}: ${err.message}`);
+    res.status(500).json({ error: 'Unable to reach the authentication service. Please try again later.' });
   }
 });
 
-// REGISTER — calls auth service, sets httpOnly cookie on success
+// REGISTER — calls auth service, creates server-side session in Redis on success
 app.post('/api/register', verifyCsrf, async (req, res) => {
+  const { email } = req.body;
   try {
     const response = await fetch(`${AUTH_URL}/register`, {
       method: 'POST',
@@ -140,26 +184,35 @@ app.post('/api/register', verifyCsrf, async (req, res) => {
     });
     const data = await response.json();
     if (response.ok) {
-      res.cookie('user', JSON.stringify({ username: data.username, email: data.email }), SESSION_COOKIE_OPTIONS);
+      const sessionId = await createSession({ username: data.username, email: data.email });
+      res.cookie('sessionId', sessionId, SESSION_COOKIE_OPTIONS);
+      console.log(`[REGISTER] Success: ${email}`);
+    } else {
+      console.warn(`[REGISTER] Failed for ${email} — HTTP ${response.status}: ${data.error}`);
+      data.error = data.error?.toLowerCase().includes('already exists')
+        ? 'An account with this email already exists.'
+        : 'Registration failed. Please try again.';
     }
     res.status(response.status).json(data);
   } catch (err) {
-    res.status(500).json({ error: 'Auth service unavailable' });
+    console.error(`[REGISTER] Error for ${email}: ${err.message}`);
+    res.status(500).json({ error: 'Unable to reach the authentication service. Please try again later.' });
   }
 });
 
-// UPDATE USERNAME — refreshes the session cookie with the new username
-app.post('/api/update-username', verifyCsrf, (req, res) => {
-  const userCookie = req.cookies.user;
-  if (!userCookie) return res.status(401).json({ error: 'Not authenticated' });
+// UPDATE USERNAME — updates the session data in Redis with the new username
+app.post('/api/update-username', verifyCsrf, async (req, res) => {
+  const sessionId = req.cookies.sessionId;
+  if (!sessionId) return res.status(401).json({ error: 'Not authenticated' });
   try {
-    const user = JSON.parse(userCookie);
+    const user = await getSession(sessionId);
+    if (!user) return res.status(401).json({ error: 'Session expired or invalid' });
     const { username } = req.body;
     if (!username) return res.status(400).json({ error: 'Username is required' });
-    res.cookie('user', JSON.stringify({ ...user, username }), SESSION_COOKIE_OPTIONS);
+    await redisClient.setex(`session:${sessionId}`, SESSION_TTL_SECONDS, JSON.stringify({ ...user, username }));
     res.json({ username });
   } catch {
-    res.status(401).json({ error: 'Invalid session' });
+    res.status(500).json({ error: 'Session store unavailable' });
   }
 });
 

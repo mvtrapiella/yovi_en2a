@@ -68,18 +68,6 @@
   overflow: hidden; 
 }
 
-.closeButton {
-  background: transparent;
-  border: none;
-  color: #555;
-  font-size: 1.2rem;
-  cursor: pointer;
-  transition: color 0.2s;
-}
-
-.closeButton:hover {
-  color: #ff4444;
-}
 
 /* Mobile Responsiveness */
 @media (max-width: 48rem) {

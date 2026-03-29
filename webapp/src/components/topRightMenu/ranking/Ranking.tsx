@@ -15,6 +15,7 @@ const Ranking: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   return (
     <div className="top-right-menu-overlay">
       <div className="top-right-menu-container">
+        <button className="top-right-menu-close-btn" onClick={onClose} aria-label="Close">✕</button>
 
         <header className="top-right-menu-global-header">
           <h2 className="top-right-menu-title">RANKINGS</h2>
@@ -35,7 +36,6 @@ const Ranking: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                   </button>
                 ))}
               </div>
-              <button className={styles.closeButton} onClick={onClose} aria-label="Close">✕</button>
             </header>
 
             <div className={`tab-content ${styles.rankingContent}`}>

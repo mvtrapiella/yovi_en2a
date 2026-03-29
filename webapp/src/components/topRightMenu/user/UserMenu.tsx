@@ -32,9 +32,9 @@ const UserMenu: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     return (
       <div className="top-right-menu-overlay">
         <div className="top-right-menu-container">
+          <button className="top-right-menu-close-btn" onClick={onClose} aria-label="Close">✕</button>
           <header className={styles.header}>
             <h2>USER PROFILE</h2>
-            <button className={styles.closeBtn} onClick={onClose}>✕</button>
           </header>
           <div className={styles.body}>
             <div className={styles.guestMessageContainer}>
@@ -56,9 +56,9 @@ const UserMenu: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   return (
     <div className="top-right-menu-overlay">
       <div className="top-right-menu-container">
+        <button className="top-right-menu-close-btn" onClick={onClose} aria-label="Close">✕</button>
         <header className={styles.header}>
           <h2>USER PROFILE</h2>
-          <button className={styles.closeBtn} onClick={onClose}>✕</button>
         </header>
         <div className={styles.body}>
           <div className={styles.infoGroup}>

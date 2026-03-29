@@ -2,9 +2,6 @@
 
 /* --- HEADER --- */
 .header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
   padding: 1.5rem 1.5rem 0.5rem 1.5rem;
   border-bottom: 0.0625rem solid rgba(255, 255, 255, 0.05);
   margin-bottom: 1rem;
@@ -16,22 +13,6 @@
   font-size: 1.5rem;
   text-transform: uppercase;
   letter-spacing: 0.05rem;
-}
-
-/* --- CLOSE BUTTON --- */
-.closeBtn {
-  background: transparent;
-  border: none;
-  color: #555;
-  font-size: 1.2rem;
-  cursor: pointer;
-  padding: 0.5rem;
-  transition: all 0.2s;
-}
-
-.closeBtn:hover {
-  color: #ff4444;
-  transform: scale(1.1);
 }
 
 /* --- BODY & CONTENT --- */

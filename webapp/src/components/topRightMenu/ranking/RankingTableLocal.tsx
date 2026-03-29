@@ -3,6 +3,12 @@ import styles from './RankingTableLocal.module.css';
 import type { RankingElementLocal } from "./rankingElements/RankingElementLocal";
 import Pagination, { usePagination } from './Pagination';
 
+const formatTime = (seconds: number): string => {
+  const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+  const s = Math.floor(seconds % 60).toString().padStart(2, '0');
+  return `${m}:${s}`;
+};
+
 const RankingTableLocal: React.FC<{ data: RankingElementLocal[], title: string }> = ({ data, title }) => {
   const { currentPage, setCurrentPage, totalPages, pageData, visiblePages } = usePagination(data);
 
@@ -10,36 +16,24 @@ const RankingTableLocal: React.FC<{ data: RankingElementLocal[], title: string }
     <div className={styles.rankingContainer}>
       <h3 className={styles.rankingSubtitle}>{title}</h3>
 
-      {/* Fixed Header Row: Stays at the top while the list scrolls */}
       <div className={styles.rankingHeaderRow}>
         <span>PLAYER 1</span>
-        <span className={styles.vsLabel}></span> {/* Placeholder to align with the VS column */}
+        <span className={styles.vsLabel}></span>
         <span>PLAYER 2</span>
         <span>RESULT</span>
+        <span>TIME</span>
       </div>
 
-      {/* Page rows */}
       <div className={styles.rankingList}>
-        {pageData.map((item, index) => {
-          return (
-            <div
-              key={`rank-${index}-${item.player1Name}`}
-              className={styles.rankingItem}
-            >
-              {/* 1. Left Side: Player 1 Name */}
-              <span className={styles.rankName}>{item.player1Name}</span>
-
-              {/* 2. Center: VS Label */}
-              <span className={styles.vsLabel}>VS</span>
-
-              {/* 3. Middle/Right: Player 2 Name */}
-              <span className={styles.rankName}>{item.player2Name}</span>
-
-              {/* 4. Far Right: Match Result (e.g., WIN/LOSS) */}
-              <span className={styles.rankTime}>{item.result}</span>
-            </div>
-          );
-        })}
+        {pageData.map((item, index) => (
+          <div key={`rank-${index}-${item.player1Name}`} className={styles.rankingItem}>
+            <span className={styles.rankName}>{item.player1Name}</span>
+            <span className={styles.vsLabel}>VS</span>
+            <span className={styles.rankName}>{item.player2Name}</span>
+            <span className={styles.rankResult}>{item.result}</span>
+            <span className={styles.rankTime}>{formatTime(item.time)}</span>
+          </div>
+        ))}
       </div>
 
       <Pagination

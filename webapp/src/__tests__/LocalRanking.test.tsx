@@ -44,8 +44,7 @@ describe('LocalRanking Strategy & Fetcher', () => {
       json: async () => ({ matches: [] })
     } as any)
 
-    const strategy = new LocalRanking()
-    render(<MemoryRouter>{strategy.render()}</MemoryRouter>)
+    render(<MemoryRouter><LocalRanking /></MemoryRouter>)
 
     await waitFor(() => {
       expect(screen.getByText(/You are not logged yet/i)).toBeInTheDocument()
@@ -79,8 +78,7 @@ describe('LocalRanking Strategy & Fetcher', () => {
       json: async () => mockApiResponse
     } as any)
 
-    const strategy = new LocalRanking()
-    render(<MemoryRouter>{strategy.render()}</MemoryRouter>)
+    render(<MemoryRouter><LocalRanking /></MemoryRouter>)
 
     await waitFor(() => {
       expect(screen.queryByText(/Cargando Historial/i)).not.toBeInTheDocument()

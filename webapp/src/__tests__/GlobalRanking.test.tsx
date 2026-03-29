@@ -10,30 +10,26 @@ describe('GlobalRanking Strategy & Fetcher', () => {
   })
 
   test('shows loading state initially', () => {
-    // AÑADIDO: "as any" para calmar a TypeScript
     globalThis.fetch = vi.fn(() => new Promise(() => {})) as any
-    
-    const strategy = new GlobalRanking()
-    render(strategy.render())
-    
+
+    render(<GlobalRanking />)
+
     expect(screen.getByText(/Cargando Leaderboard/i)).toBeInTheDocument()
   })
 
   test('fetches data, formats time, and renders the global table', async () => {
     const mockApiResponse = {
       rankings: [
-        { username: 'SpeedRunner', best_time: 95 }, // 95 segundos = 01:35
-        { playerid: 'Guest123', best_time: 125 }    // Fallback a playerid. 125s = 02:05
+        { username: 'SpeedRunner', best_time: 95 },
+        { playerid: 'Guest123', best_time: 125 }
       ]
     }
 
-    // AÑADIDO: "as any" al final del mock
     globalThis.fetch = vi.fn().mockResolvedValueOnce({
       json: async () => mockApiResponse
     }) as any
 
-    const strategy = new GlobalRanking()
-    render(strategy.render())
+    render(<GlobalRanking />)
 
     // Esperamos a que desaparezca el mensaje de carga
     await waitFor(() => {

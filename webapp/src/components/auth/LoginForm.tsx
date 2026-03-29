@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import styles from './AuthForm.module.css';
 import { useUser } from '../../contexts/UserContext';
@@ -16,8 +16,12 @@ const LoginForm: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  // Prevents the useEffect below from redirecting when we just logged in through
+  // the form — in that case the setTimeout handles the redirect after showing the message.
+  const justLoggedIn = useRef(false);
+
   useEffect(() => {
-    if (isLoggedIn) navigate('/gameSelection');
+    if (isLoggedIn && !justLoggedIn.current) navigate('/gameSelection');
   }, [isLoggedIn, navigate]);
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -42,14 +46,15 @@ const LoginForm: React.FC = () => {
       const data = await res.json();
 
       if (res.ok) {
+        justLoggedIn.current = true;
         await refreshUser();
         setResponseMessage(data.message);
-        setTimeout(() => navigate('/gameSelection'), 1500);
+        setTimeout(() => navigate('/gameSelection'), 1200);
       } else {
-        setError(data.error || 'Server error occurred.');
+        setError(data.error || 'Login failed. Please try again.');
       }
-    } catch (err: any) {
-      setError(err.message || 'A network error occurred.');
+    } catch {
+      setError('Could not connect to the server. Please check your connection and try again.');
     } finally {
       setLoading(false);
     }

@@ -47,10 +47,10 @@ const RegisterForm: React.FC = () => {
         setResponseMessage(data.message);
         setTimeout(() => navigate('/gameSelection'), 1500);
       } else {
-        setError(data.error || 'Registration failed.');
+        setError(data.error || 'Registration failed. Please try again.');
       }
-    } catch (err: any) {
-      setError(err.message || 'A network error occurred.');
+    } catch {
+      setError('Could not connect to the server. Please check your connection and try again.');
     } finally {
       setLoading(false);
     }

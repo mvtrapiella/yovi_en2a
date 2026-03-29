@@ -34,6 +34,7 @@ describe('LocalRanking Strategy & Fetcher', () => {
       user: null,
       isLoggedIn: false,
       loading: false,
+      error: null,
       refreshUser: vi.fn(),
       logout: vi.fn(),
       updateUsername: vi.fn()
@@ -62,6 +63,7 @@ describe('LocalRanking Strategy & Fetcher', () => {
       user: { username: 'ProGamer', email: 'pro@gamer.com' },
       isLoggedIn: true,
       loading: false,
+      error: null,
       refreshUser: vi.fn(),
       logout: vi.fn(),
       updateUsername: vi.fn()

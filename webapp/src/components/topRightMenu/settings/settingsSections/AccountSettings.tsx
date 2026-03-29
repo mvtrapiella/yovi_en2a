@@ -65,8 +65,8 @@ export class AccountSettings implements SettingsSection {
             id="logout-button"
             className={accountStyles.dangerBtn}
             onClick={async () => {
-              await this.logout();
               this.navigate("/");
+              await this.logout();
             }}
           >
             Log Out

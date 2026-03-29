@@ -9,20 +9,22 @@ const UserMenu: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 
   const [newUsername, setNewUsername] = useState(user?.username || '');
   const [isEditing, setIsEditing] = useState(false);
+  const [usernameError, setUsernameError] = useState<string | null>(null);
 
   const handleLogout = async () => {
-    await logout();
-    navigate('/');
     onClose();
+    navigate('/');
+    await logout();
   };
 
   const handleSaveUsername = async () => {
     if (!user) return;
+    setUsernameError(null);
     try {
       await updateUsername(newUsername);
       setIsEditing(false);
-    } catch {
-      console.error('Failed to update username');
+    } catch (err: any) {
+      setUsernameError(err.message ?? 'Failed to update username.');
     }
   };
 
@@ -66,16 +68,19 @@ const UserMenu: React.FC<{ onClose: () => void }> = ({ onClose }) => {
           <div className={styles.infoGroup}>
             <p>Username</p>
             {isEditing ? (
-              <div className={styles.editRow}>
-                <input
-                  type="text"
-                  value={newUsername}
-                  onChange={(e) => setNewUsername(e.target.value)}
-                  className={styles.input}
-                />
-                <button onClick={handleSaveUsername} className={styles.saveBtn}>Save</button>
-                <button onClick={() => setIsEditing(false)} className={styles.cancelBtn}>Cancel</button>
-              </div>
+              <>
+                <div className={styles.editRow}>
+                  <input
+                    type="text"
+                    value={newUsername}
+                    onChange={(e) => setNewUsername(e.target.value)}
+                    className={styles.input}
+                  />
+                  <button onClick={handleSaveUsername} className={styles.saveBtn}>Save</button>
+                  <button onClick={() => { setIsEditing(false); setUsernameError(null); }} className={styles.cancelBtn}>Cancel</button>
+                </div>
+                {usernameError && <p style={{ color: 'red', fontSize: '0.85rem' }}>{usernameError}</p>}
+              </>
             ) : (
               <div className={styles.displayRow}>
                 <span>{user.username}</span>

@@ -14,7 +14,7 @@ describe('GlobalRanking Strategy & Fetcher', () => {
 
     render(<GlobalRanking />)
 
-    expect(screen.getByText(/Cargando Leaderboard/i)).toBeInTheDocument()
+    expect(screen.getByText(/Loading leaderboard/i)).toBeInTheDocument()
   })
 
   test('fetches data, formats time, and renders the global table', async () => {
@@ -33,11 +33,11 @@ describe('GlobalRanking Strategy & Fetcher', () => {
 
     // Esperamos a que desaparezca el mensaje de carga
     await waitFor(() => {
-      expect(screen.queryByText(/Cargando Leaderboard/i)).not.toBeInTheDocument()
+      expect(screen.queryByText(/Loading leaderboard/i)).not.toBeInTheDocument()
     })
 
     // Verificamos que se calculó bien el MM:SS y se renderizan los datos
-    expect(screen.getByText('World Leaderboard (Top 20)')).toBeInTheDocument()
+    expect(screen.getByText('Fastest Games — Best Time (Top 20)')).toBeInTheDocument()
     expect(screen.getByText('SpeedRunner')).toBeInTheDocument()
     expect(screen.getByText('01:35')).toBeInTheDocument()
     

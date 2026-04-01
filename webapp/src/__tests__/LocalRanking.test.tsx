@@ -81,10 +81,10 @@ describe('LocalRanking Strategy & Fetcher', () => {
     render(<MemoryRouter><LocalRanking /></MemoryRouter>)
 
     await waitFor(() => {
-      expect(screen.queryByText(/Cargando Historial/i)).not.toBeInTheDocument()
+      expect(screen.queryByText(/Loading history/i)).not.toBeInTheDocument()
     })
 
-    expect(screen.getByText(/Personal Records \(ProGamer\)/i)).toBeInTheDocument()
+    expect(screen.getByText(/Match History \(ProGamer\)/i)).toBeInTheDocument()
     expect(screen.getByText('BotLevel3')).toBeInTheDocument()
     expect(screen.getByText('WIN')).toBeInTheDocument()
   })
@@ -103,11 +103,10 @@ describe('LocalRanking Strategy & Fetcher', () => {
     globalThis.fetch = vi.fn().mockRejectedValueOnce(new Error('Network error'))
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
-    const strategy = new LocalRanking()
-    render(<MemoryRouter>{strategy.render()}</MemoryRouter>)
+    render(<MemoryRouter><LocalRanking /></MemoryRouter>)
 
     await waitFor(() => {
-      expect(screen.queryByText(/Cargando Historial/i)).not.toBeInTheDocument()
+      expect(screen.queryByText(/Loading history/i)).not.toBeInTheDocument()
     })
 
     expect(consoleSpy).toHaveBeenCalledWith(

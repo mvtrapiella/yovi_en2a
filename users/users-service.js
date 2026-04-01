@@ -1,26 +1,16 @@
-const express = require('express');
-const { createProxyMiddleware, fixRequestBody } = require('http-proxy-middleware');
-const swaggerUi = require('swagger-ui-express');
-const fs = require('node:fs');
-const YAML = require('js-yaml');
-const promBundle = require('express-prom-bundle');
-const crypto = require('node:crypto');
-const cookieParser = require('cookie-parser');
-const Redis = require('ioredis');
+import express from 'express';
+import { createProxyMiddleware, fixRequestBody } from 'http-proxy-middleware';
+import swaggerUi from 'swagger-ui-express';
+import fs from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import YAML from 'js-yaml';
+import promBundle from 'express-prom-bundle';
+import crypto from 'node:crypto';
+import cookieParser from 'cookie-parser';
+import redisClient from './redis-client.js';
 
 const app = express();
 const port = 3000;
-
-// --- Redis client for server-side session storage ---
-const redisClient = new Redis({
-  host: process.env.REDIS_HOST || 'localhost',
-  port: Number.parseInt(process.env.REDIS_PORT || '6379'),
-  enableOfflineQueue: false // reject immediately if Redis is down, don't queue
-});
-
-redisClient.on('error', (err) => {
-  console.error('Redis error:', err.message);
-});
 
 const SESSION_TTL_SECONDS = 1800; // 30 minutes
 
@@ -247,10 +237,10 @@ app.use('/game', createProxyMiddleware({
   },
 }));
 
-if (require.main === module) {
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
   app.listen(port, () => {
     console.log(`User Service (API Gateway) listening at http://localhost:${port}`);
   });
 }
 
-module.exports = app;
+export default app;

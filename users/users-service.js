@@ -14,7 +14,7 @@ const port = 3000;
 // --- Redis client for server-side session storage ---
 const redisClient = new Redis({
   host: process.env.REDIS_HOST || 'localhost',
-  port: parseInt(process.env.REDIS_PORT || '6379'),
+  port: Number.parseInt(process.env.REDIS_PORT || '6379'),
   enableOfflineQueue: false // reject immediately if Redis is down, don't queue
 });
 
@@ -166,13 +166,13 @@ app.post('/api/login', verifyCsrf, async (req, res) => {
     try {
       const sessionId = await createSession({ username: data.username, email: data.email });
       res.cookie('sessionId', sessionId, SESSION_COOKIE_OPTIONS);
-      console.log(`[LOGIN] Success: ${email}`);
+      console.log('[LOGIN] Success');
     } catch (err) {
       console.error(`[LOGIN] Session creation failed for ${email}: ${err.message}`);
       return res.status(500).json({ error: 'Login succeeded but session could not be created. Please try again.' });
     }
   } else {
-    console.warn(`[LOGIN] Failed for ${email} — HTTP ${response.status}: ${data.error}`);
+    console.warn(`[LOGIN] Failed — HTTP ${response.status}`);
     data.error = response.status === 401
       ? 'Invalid email or password.'
       : 'Login failed. Please try again.';
@@ -201,13 +201,13 @@ app.post('/api/register', verifyCsrf, async (req, res) => {
     try {
       const sessionId = await createSession({ username: data.username, email: data.email });
       res.cookie('sessionId', sessionId, SESSION_COOKIE_OPTIONS);
-      console.log(`[REGISTER] Success: ${email}`);
+      console.log('[REGISTER] Success');
     } catch (err) {
       console.error(`[REGISTER] Session creation failed for ${email}: ${err.message}`);
       return res.status(500).json({ error: 'Registration succeeded but session could not be created. Please try again.' });
     }
   } else {
-    console.warn(`[REGISTER] Failed for ${email} — HTTP ${response.status}: ${data.error}`);
+    console.warn(`[REGISTER] Failed — HTTP ${response.status}`);
     data.error = data.error?.toLowerCase().includes('already exists')
       ? 'An account with this email already exists.'
       : 'Registration failed. Please try again.';

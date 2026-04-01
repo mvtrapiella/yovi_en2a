@@ -116,6 +116,23 @@ describe('UserMenu Component', () => {
     expect(mockUpdateUsername).toHaveBeenCalledWith('NuevoNombre');
   });
 
+  test('shows fallback error message when updateUsername throws without a message', async () => {
+    mockUpdateUsername.mockRejectedValue({ message: null })
+    vi.mocked(useUser).mockReturnValue({
+      user: { email: 'pablo@test.com', username: 'Pablo' },
+      isLoggedIn: true, loading: false, error: null,
+      refreshUser: vi.fn(), logout: mockLogout, updateUsername: mockUpdateUsername
+    })
+
+    const user = userEvent.setup()
+    render(<MemoryRouter><UserMenu onClose={mockOnClose} /></MemoryRouter>)
+
+    await user.click(screen.getByRole('button', { name: /Edit/i }))
+    await user.click(screen.getByRole('button', { name: /Save/i }))
+
+    expect(await screen.findByText('Failed to update username.')).toBeInTheDocument()
+  })
+
   test('can cancel editing without saving', async () => {
     vi.mocked(useUser).mockReturnValue({
       user: { email: 'pablo@test.com', username: 'Pablo' },

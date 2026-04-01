@@ -9,6 +9,7 @@ import { createMatch, sendMove, requestBotMove, updateScore, saveMatch } from ".
 import { Game, toXYZ, fromXYZ } from "./Game";
 import { useTimer } from "./rightPanel/Timer";
 import modalStyles from "./GameModal.module.css";
+import { useUser } from "../../contexts/UserContext";
 
 export type Move = {
   row: number;
@@ -17,12 +18,6 @@ export type Move = {
 };
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
-// Función auxiliar para leer la cookie de usuario
-const getCookieUser = () => {
-  const cookieMatch = document.cookie.match(/(?:^|; )user=([^;]*)/);
-  return cookieMatch ? JSON.parse(decodeURIComponent(cookieMatch[1])) : null;
-};
 
 // Función para convertir "02:30" a 150 segundos
 const timeToSeconds = (timeStr: string) => {
@@ -33,12 +28,10 @@ const timeToSeconds = (timeStr: string) => {
 const GameWindow = () => {
   const { size: urlSize, mode: urlMode } = useParams();
   const navigate = useNavigate();
+  const { user: currentUser } = useUser();
 
   const size = urlSize ? Number.parseInt(urlSize, 10) : 8;
   const mode = urlMode;
-
-  // Si el usuario está logueado, usamos su nombre, si no, "Player 1"
-  const currentUser = getCookieUser();
   const player1 = currentUser ? currentUser.username : "Player 1";
   const player2 = mode === "multi" ? "Player 2" : mode+"";
 

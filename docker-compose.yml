@@ -8,10 +8,13 @@ services:
     environment:
       - GAMEMANAGER_URL=http://game_manager:5000
       - AUTH_URL=http://auth-engine:4001
-      - GAMEY_URL=http://gamey:4000 
+      - GAMEY_URL=http://gamey:4000
+      - REDIS_HOST=redis_db
+      - REDIS_PORT=6379
     depends_on:
       - auth-engine
-      - gamey 
+      - gamey
+      - redis_db
     networks:
       - monitor-net
 

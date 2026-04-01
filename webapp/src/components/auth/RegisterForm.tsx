@@ -1,17 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import styles from './AuthForm.module.css';
-
-// 1. Añadimos la función auxiliar para leer la cookie
-const getCookie = (name: string) => {
-  const value = `; ${document.cookie}`;
-  const parts = value.split(`; ${name}=`);
-  if (parts.length === 2) return parts.pop()?.split(';').shift();
-  return null;
-};
+import { useUser } from '../../contexts/UserContext';
+import { useCsrf } from '../../security/useCsrf';
 
 const RegisterForm: React.FC = () => {
   const navigate = useNavigate();
+  const { isLoggedIn, refreshUser } = useUser();
+  const csrfToken = useCsrf();
+  const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000';
 
   const [email, setEmail] = useState('');
   const [username, setUsername] = useState('');
@@ -20,34 +17,9 @@ const RegisterForm: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // State to store the CSRF token
-  const [csrfToken, setCsrfToken] = useState<string>('');
-  const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000';
-
-  // 2. Comprobar si ya hay una sesión activa para redirigir directamente
   useEffect(() => {
-    const userCookie = getCookie("user");
-    if (userCookie) {
-      navigate('/gameSelection');
-    }
-  }, [navigate]);
-
-  // Fetch the CSRF token when the component mounts
-  useEffect(() => {
-    const fetchCsrfToken = async () => {
-      try {
-        const res = await fetch(`${API_URL}/api/csrf-token`, {
-          credentials: 'include' 
-        });
-        const data = await res.json();
-        setCsrfToken(data.csrfToken);
-      } catch (err) {
-        console.error('Failed to fetch CSRF token', err);
-      }
-    };
-    
-    fetchCsrfToken();
-  }, [API_URL]);
+    if (isLoggedIn) navigate('/gameSelection');
+  }, [isLoggedIn, navigate]);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -63,34 +35,22 @@ const RegisterForm: React.FC = () => {
     try {
       const res = await fetch(`${API_URL}/api/register`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRF-Token': csrfToken
-        },
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
         credentials: 'include',
         body: JSON.stringify({ email, username, password }),
       });
 
       const data = await res.json();
-      
-      if (res.ok) {
-        // 3. NUEVO: Crear la cookie de sesión tras un registro exitoso
-        // Usamos los datos del estado (username y email) que el usuario acaba de rellenar
-        const userData = JSON.stringify({
-          username: username,
-          email: email
-        });
-        document.cookie = `user=${encodeURIComponent(userData)}; path=/; max-age=86400; SameSite=Lax`;
 
+      if (res.ok) {
+        await refreshUser();
         setResponseMessage(data.message);
-        setTimeout(() => {
-          navigate('/gameSelection');
-        }, 1500);
+        setTimeout(() => navigate('/gameSelection'), 1500);
       } else {
-        setError(data.error || 'Registration failed.');
+        setError(data.error || 'Registration failed. Please try again.');
       }
-    } catch (err: any) {
-      setError(err.message || 'A network error occurred.');
+    } catch {
+      setError('Could not connect to the server. Please check your connection and try again.');
     } finally {
       setLoading(false);
     }
@@ -141,17 +101,8 @@ const RegisterForm: React.FC = () => {
         Already have an account? Click here to login
       </Link>
 
-      {responseMessage && (
-        <div className={styles.successMessage}>
-          {responseMessage}
-        </div>
-      )}
-
-      {error && (
-        <div className={styles.errorMessage}>
-          {error}
-        </div>
-      )}
+      {responseMessage && <div className={styles.successMessage}>{responseMessage}</div>}
+      {error && <div className={styles.errorMessage}>{error}</div>}
     </form>
   );
 };

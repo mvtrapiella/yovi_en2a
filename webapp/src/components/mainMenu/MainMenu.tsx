@@ -24,9 +24,9 @@
             label="Log In" 
             onClick={() => navigate("/login")} 
           />
-          <MenuButtons 
-            label="Play as Guest" 
-            onClick={() => navigate("/gameSelection")} 
+          <MenuButtons
+            label="Play as Guest"
+            onClick={() => navigate("/gameSelection", { state: { guest: true } })}
           />
         </div>
       </div>

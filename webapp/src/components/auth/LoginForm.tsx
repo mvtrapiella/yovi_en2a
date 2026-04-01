@@ -1,52 +1,28 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import styles from './AuthForm.module.css';
-
-// Función auxiliar para leer la cookie
-const getCookie = (name: string) => {
-  const value = `; ${document.cookie}`;
-  const parts = value.split(`; ${name}=`);
-  if (parts.length === 2) return parts.pop()?.split(';').shift();
-  return null;
-};
+import { useUser } from '../../contexts/UserContext';
+import { useCsrf } from '../../security/useCsrf';
 
 const LoginForm: React.FC = () => {
   const navigate = useNavigate();
-  
+  const { isLoggedIn, refreshUser } = useUser();
+  const csrfToken = useCsrf();
+  const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000';
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [responseMessage, setResponseMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  
-  const [csrfToken, setCsrfToken] = useState<string>('');
-  const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000';
 
-  // NUEVO: Comprobar si ya hay una sesión activa al cargar la página
-  useEffect(() => {
-    const userCookie = getCookie("user");
-    if (userCookie) {
-      // Si la cookie existe, redirigimos inmediatamente
-      navigate('/gameSelection');
-    }
-  }, [navigate]);
+  // Prevents the useEffect below from redirecting when we just logged in through
+  // the form — in that case the setTimeout handles the redirect after showing the message.
+  const justLoggedIn = useRef(false);
 
-  // Fetch the CSRF token when the component mounts
   useEffect(() => {
-    const fetchCsrfToken = async () => {
-      try {
-        const res = await fetch(`${API_URL}/api/csrf-token`, {
-          credentials: 'include' 
-        });
-        const data = await res.json();
-        setCsrfToken(data.csrfToken);
-      } catch (err) {
-        console.error('Failed to fetch CSRF token', err);
-      }
-    };
-    
-    fetchCsrfToken();
-  }, [API_URL]);
+    if (isLoggedIn && !justLoggedIn.current) navigate('/gameSelection');
+  }, [isLoggedIn, navigate]);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -62,32 +38,23 @@ const LoginForm: React.FC = () => {
     try {
       const res = await fetch(`${API_URL}/api/login`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRF-Token': csrfToken 
-        },
-        credentials: 'include', 
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
+        credentials: 'include',
         body: JSON.stringify({ email, password }),
       });
 
       const data = await res.json();
-      
-      if (res.ok) {
-        const userData = JSON.stringify({
-          username: data.username,
-          email: data.email
-        });
-        document.cookie = `user=${encodeURIComponent(userData)}; path=/; max-age=86400; SameSite=Lax`;
 
+      if (res.ok) {
+        justLoggedIn.current = true;
+        await refreshUser();
         setResponseMessage(data.message);
-        setTimeout(() => {
-            navigate('/gameSelection');
-        }, 1500);
+        setTimeout(() => navigate('/gameSelection'), 1200);
       } else {
-        setError(data.error || 'Server error occurred.');
+        setError(data.error || 'Login failed. Please try again.');
       }
-    } catch (err: any) {
-      setError(err.message || 'A network error occurred.');
+    } catch {
+      setError('Could not connect to the server. Please check your connection and try again.');
     } finally {
       setLoading(false);
     }
@@ -127,17 +94,8 @@ const LoginForm: React.FC = () => {
         If you haven't registered yet, click here
       </Link>
 
-      {responseMessage && (
-        <div className={styles.successMessage}>
-          {responseMessage}
-        </div>
-      )}
-
-      {error && (
-        <div className={styles.errorMessage}>
-          {error}
-        </div>
-      )}
+      {responseMessage && <div className={styles.successMessage}>{responseMessage}</div>}
+      {error && <div className={styles.errorMessage}>{error}</div>}
     </form>
   );
 };

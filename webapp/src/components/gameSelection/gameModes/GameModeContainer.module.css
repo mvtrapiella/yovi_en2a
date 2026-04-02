@@ -2,18 +2,24 @@
   width: 100%;
   height: 100%;
   padding: clamp(0.8rem, 4vw, 1.5rem) clamp(1rem, 5vw, 2rem);
-  border: 0.1rem solid #444;
+  border: 0.1rem solid rgba(255, 255, 255, 0.08);
   border-radius: 1.25rem;
-  background-color: #1a1a1a;
+  background: linear-gradient(160deg, #1a1f1a 0%, #181818 100%);
   color: #eeeeee;
 
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  gap: clamp(0.3rem, 1.5vw, 1rem); 
+  gap: clamp(0.3rem, 1.5vw, 1rem);
 
   box-sizing: border-box;
-  overflow: hidden; 
+  overflow: hidden;
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.gameModeContainer:hover {
+  border-color: rgba(22, 163, 74, 0.45);
+  box-shadow: 0 0 2.5rem rgba(22, 163, 74, 0.08);
 }
 
 /* Header and tooltip */
@@ -25,9 +31,11 @@
 }
 
 .title {
-  font-size: clamp(1.1rem, 5vw, 1.4rem);
+  font-family: var(--font-heading, var(--font-main));
+  font-size: clamp(1.1rem, 5vw, 1.5rem);
   margin: 0;
-  font-weight: 800;
+  font-weight: 700;
+  letter-spacing: 0.06rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -36,23 +44,29 @@
 .tooltipContainer { position: relative; z-index: 20; }
 .infoButton {
   width: 2rem; height: 2rem; border-radius: 50%;
-  border: none; background-color: #333; color: #aaa;
+  border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.05); color: #888;
   cursor: pointer; display: flex; align-items: center; justify-content: center;
+  font-size: 0.85rem; transition: background 0.15s, color 0.15s;
+}
+.infoButton:hover {
+  background: rgba(255,255,255,0.1);
+  color: #ccc;
 }
 .tooltip {
   display: none; position: absolute; top: 115%; right: 0;
-  width: 13rem; padding: 1rem; background-color: #ffffff;
-  color: #1a1a1a; border-radius: 0.75rem; font-size: 0.85rem;
-  box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.5); z-index: 9999;
+  width: 13rem; padding: 0.9rem 1rem; background: #1a1f1a;
+  border: 1px solid rgba(22, 163, 74, 0.2);
+  color: #ccc; border-radius: 0.75rem; font-size: 0.82rem; line-height: 1.5;
+  box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.6); z-index: 9999;
 }
 .tooltipContainer:hover .tooltip { display: block; }
 
 /* Image container */
 .imageContainer {
   width: 100%;
-  flex: 1 1 auto;           
+  flex: 1 1 auto;
   flex-basis: clamp(80px, 35%, 200px);
-  min-height: 0; /* CRUCIAL: Prevents flexbox from collapsing the image */
+  min-height: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -64,7 +78,7 @@
   height: 100%;
   object-fit: cover;
   border-radius: 0.8rem;
-  border: 0.05rem solid #333;
+  border: 0.05rem solid rgba(255,255,255,0.06);
 }
 
 /* Wrapper to hold Difficulty and Size side-by-side */
@@ -74,28 +88,30 @@
   gap: clamp(0.3rem, 1.5vw, 1rem);
   width: 100%;
   flex-shrink: 0;
-  box-sizing: border-box; /* Ensures gap and width behave strictly */
+  box-sizing: border-box;
 }
 
 /* Difficulty & Size Sections */
 .difficultySection,
 .sizeSection {
-  flex: 1; /* Both sections take up exactly half the width */
-  min-width: 0; /* CRUCIAL: Allows the flex items to shrink below their content size */
+  flex: 1;
+  min-width: 0;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 0.4rem;
-  background-color: #252525;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
   padding: 0.6rem clamp(0.2rem, 1vw, 0.5rem);
-  border-radius: 1rem;
+  border-radius: 0.75rem;
 }
 
 .difficultyLabel {
-  font-size: 0.7rem;
-  color: #888;
+  font-size: 0.65rem;
+  color: #555;
   text-transform: uppercase;
+  letter-spacing: 0.08rem;
 }
 
 .difficultySelector {
@@ -103,57 +119,78 @@
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  gap: 0.2rem; /* Adds a safety margin so the text doesn't touch the arrows */
+  gap: 0.2rem;
 }
 
 .arrow {
-  background-color: #333;
-  color: white;
-  border: none;
-  width: clamp(1.5rem, 4vw, 2.2rem); /* Fluid width so it doesn't break the container */
-  height: clamp(1.5rem, 4vw, 2.2rem); /* Fluid height */
-  border-radius: 0.5rem;
+  background: rgba(255,255,255,0.06);
+  color: #aaa;
+  border: 1px solid rgba(255,255,255,0.08);
+  width: clamp(1.5rem, 4vw, 2.2rem);
+  height: clamp(1.5rem, 4vw, 2.2rem);
+  border-radius: 0.4rem;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 0;
   line-height: 1;
-  flex-shrink: 0; /* Prevents arrows from becoming oval shaped */
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.arrow:hover {
+  background: rgba(22, 163, 74, 0.15);
+  color: #fff;
+  border-color: rgba(22, 163, 74, 0.35);
 }
 
 .difficultyBox {
-  font-size: clamp(0.6rem, 1.5vw, 0.7rem);
-  font-weight: bold;
-  color: #4caf50;
-  
-  flex: 1; /* Occupies exactly the remaining space between the arrows */
-  min-width: 0; /* Allows the box to shrink properly */
-  
+  font-family: var(--font-heading, var(--font-main));
+  font-size: clamp(0.65rem, 1.5vw, 0.75rem);
+  font-weight: 700;
+  color: #16a34a;
+
+  flex: 1;
+  min-width: 0;
+
   display: flex;
   justify-content: center;
   align-items: center;
   text-align: center;
-  
-  /* Text Wrapping Rules */
-  white-space: normal; /* Allows text to wrap to the next line if space is tight */
-  word-break: normal; /* Ensures wrapping happens by whole words (e.g., "Very" and "Hard") */
-  line-height: 1.1; /* Keeps wrapped lines close together for a centered look */
-  padding: 0 0.1rem; /* Small inner padding for safety */
+
+  white-space: normal;
+  word-break: normal;
+  line-height: 1.1;
+  padding: 0 0.1rem;
 }
 
 /* PLAY Button */
 .playButton {
   width: 100%;
-  flex-shrink: 0;         
-  min-height: 3rem;      
+  flex-shrink: 0;
+  min-height: 3rem;
   padding: clamp(0.8rem, 4vw, 1.2rem);
-  font-size: clamp(1rem, 4vw, 1.2rem);
-  font-weight: bold;
+  font-size: clamp(1rem, 4vw, 1.15rem);
+  font-family: var(--font-heading, var(--font-main));
+  font-weight: 700;
+  letter-spacing: 0.12rem;
   border: none;
-  border-radius: 1rem;
-  background-color: #07780b;
-  color: white;
+  border-radius: 0.75rem;
+  background: #16a34a;
+  color: #fff;
   cursor: pointer;
-  box-sizing: border-box; /* Added to guarantee strict width alignment */
+  box-sizing: border-box;
+  transition: filter 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.playButton:hover {
+  filter: brightness(1.12);
+  transform: translateY(-0.12rem);
+  box-shadow: 0 0.5rem 1.5rem rgba(22, 163, 74, 0.4);
+}
+
+.playButton:active {
+  transform: translateY(0);
+  filter: brightness(0.95);
 }

@@ -102,14 +102,68 @@
 
 .formDots {
   display: flex;
-  gap: 0.3rem;
-  flex-wrap: wrap;
-  margin-top: 0.4rem;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
 }
 
+/* Each dot grows to fill the row — becomes a pill bar */
 .formDot {
-  width: 0.9rem;
-  height: 0.9rem;
-  border-radius: 50%;
-  display: inline-block;
+  flex: 1;
+  height: 1.5rem;
+  border-radius: 0.3rem;
+  min-width: 0;
+}
+
+/* ── Responsive: tablet (<= 720px) ── */
+@media (max-width: 45rem) {
+  .chartsRow {
+    flex-direction: column;
+  }
+
+  .cardRow {
+    gap: 0.35rem;
+  }
+
+  .card {
+    min-width: 60px;
+  }
+
+  .cardValue {
+    font-size: 0.9rem;
+  }
+
+  .formDot {
+    height: 1.25rem;
+  }
+}
+
+/* ── Responsive: mobile (<= 480px) ── */
+@media (max-width: 30rem) {
+  .cardRow {
+    gap: 0.3rem;
+  }
+
+  /* 3 cards per row on small screens */
+  .card {
+    min-width: calc(33% - 0.3rem);
+    flex-basis: calc(33% - 0.3rem);
+    flex-grow: 0;
+  }
+
+  .cardValue {
+    font-size: 0.85rem;
+  }
+
+  .cardLabel {
+    font-size: 0.54rem;
+  }
+
+  .chartTitle {
+    font-size: 0.58rem;
+  }
+
+  .formDot {
+    height: 1rem;
+    border-radius: 0.2rem;
+  }
 }

@@ -28,28 +28,20 @@ const RankingTableLocal: React.FC<Props> = ({ data, title, onReplay }) => {
         <span>PLAYER 2</span>
         <span>RESULT</span>
         <span>TIME</span>
-        <span></span>
       </div>
 
       <div className={styles.rankingList}>
         {pageData.map((item, index) => (
-          <div key={`rank-${index}-${item.player1Name}`} className={styles.rankingItem}>
+          <div
+            key={`rank-${index}-${item.player1Name}`}
+            className={`${styles.rankingItem} ${onReplay ? styles.clickableRow : ''}`}
+            onClick={onReplay ? () => onReplay(item) : undefined}
+          >
             <span className={styles.rankName}>{item.player1Name}</span>
             <span className={styles.vsLabel}>VS</span>
             <span className={styles.rankName}>{item.player2Name}</span>
             <span className={styles.rankResult}>{item.result}</span>
             <span className={styles.rankTime}>{formatTime(item.time)}</span>
-            <span className={styles.replayCell}>
-              {onReplay && (item.moves?.length ?? 0) > 0 && (
-                <button
-                  className={styles.replayBtn}
-                  onClick={() => onReplay(item)}
-                  title="Watch replay"
-                >
-                  ▶
-                </button>
-              )}
-            </span>
           </div>
         ))}
       </div>

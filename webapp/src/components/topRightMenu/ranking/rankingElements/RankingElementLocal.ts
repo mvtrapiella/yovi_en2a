@@ -1,5 +1,7 @@
 export interface RankingElementLocal {
-  player1Name: string;
-  player2Name: string;
-  result: string;
+    position: number;
+    player1Name: string;
+    player2Name: string;
+    result: string;
+    time: number; // seconds (f32 from backend)
 }

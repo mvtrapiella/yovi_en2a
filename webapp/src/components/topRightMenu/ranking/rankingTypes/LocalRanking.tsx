@@ -60,8 +60,8 @@ export const LocalRanking = () => {
       .then(resData => {
         const mappedData: RankingElementLocal[] = resData.matches.map((match: any, index: number) => ({
           position: index + 1,
-          player1Name: match.player1id,
-          player2Name: match.player2id,
+          player1Name: match.player1id === user?.email ? (user?.username ?? match.player1id) : match.player1id,
+          player2Name: match.player2id === user?.email ? (user?.username ?? match.player2id) : match.player2id,
           result: match.result,
           time: match.time ?? 0,
         }));

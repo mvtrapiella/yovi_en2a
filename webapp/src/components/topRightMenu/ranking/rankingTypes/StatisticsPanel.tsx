@@ -236,7 +236,7 @@ const StatisticsPanel = ({ data, username }: Props) => {
               />
               <Tooltip
                 {...TOOLTIP_STYLE}
-                formatter={(v: number) => [v, 'ELO']}
+                formatter={(v) => [v, 'ELO']}
               />
               <Line
                 type="monotone"

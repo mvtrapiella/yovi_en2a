@@ -13,7 +13,7 @@ export default function RightPanel({turn,time = "00:00",mode,}: Readonly<Props>)
   const { user } = useUser();
   const player1Name = user?.username ?? 'Player 1';
   const isP1 = turn === 1;
-  const isP2 = isP2;
+  const isP2 = !isP1;
 
   return (
     

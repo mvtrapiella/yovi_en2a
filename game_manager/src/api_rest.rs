@@ -1,6 +1,6 @@
 use crate::redis_client;
 use crate::data::{EngineMoveRequest, EngineMoveResponse, EngineResponse, LocalRankingsRequest, LocalRankingsResponse, Match, MoveRequest, MoveResponse, NewMatchRequest, NewMatchResponse, PlayResponse, RankingTimeResponse, SaveMatchRequest, SaveMatchResponse, UpdateScoreRequest, UpdateScoreResponse, ValidResponse, YEN, CreateOnlineMatchRequest, CreateOnlineMatchResponse,
-                  JoinOnlineMatchRequest, JoinOnlineMatchResponse};
+                  JoinOnlineMatchRequest, JoinOnlineMatchResponse, UpdateOnlineMatchRequest, UpdateOnlineMatchResponse };
 
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -294,7 +294,7 @@ async fn create_online_match(
             .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
     };
 
-    Ok(Json(CreateOnlineMatchResponse { match_id }))
+    Ok(Json(CreateOnlineMatchResponse { match_id, turn_number: 0 }))
 }
 
 async fn join_online_match(
@@ -310,9 +310,34 @@ async fn join_online_match(
             .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
     };
 
-    Ok(Json(JoinOnlineMatchResponse { match_id }))
+    Ok(Json(JoinOnlineMatchResponse { match_id, turn_number: 1 }))
 }
 
+
+async fn request_online_update(
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<UpdateOnlineMatchRequest>
+) -> Result<Json<UpdateOnlineMatchResponse>, (StatusCode, String)> {
+
+    // We try for ~10 seconds
+    for _ in 0..20 {
+        let yen_json = redis_client::get_match_state(&state.redis_pool, &payload.match_id)
+            .await
+            .map_err(|_| (StatusCode::NOT_FOUND, "Match not found".to_string()))?;
+
+        let yen: YEN = serde_json::from_str(&yen_json)
+            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+        // If turn matches current, we return the board
+        if yen.current_turn == payload.player_id {
+            return Ok(Json(UpdateOnlineMatchResponse { board_status: yen }));
+        }
+
+        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+    }
+
+    Err((StatusCode::REQUEST_TIMEOUT, "Timeout waiting for your turn".to_string()))
+}
 
 impl FromRef<Arc<AppState>> for AppState {
     fn from_ref(state: &Arc<AppState>) -> Self {
@@ -347,6 +372,7 @@ pub async fn run() {
         .route("/saveMatch", post(save_match))
         .route("/createMatch", post(create_online_match)) // We add creation and connection for matches
         .route("/joinMatch", post(join_online_match))
+        .route("/requestOnlineGameUpdate", post(request_online_update)) // Request update - send update as executeMove
 
         .with_state(state);
 

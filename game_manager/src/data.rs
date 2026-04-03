@@ -226,6 +226,7 @@ pub struct CreateOnlineMatchRequest{
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CreateOnlineMatchResponse{
     pub match_id: String,
+    pub turn_number: u32,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -237,4 +238,17 @@ pub struct JoinOnlineMatchRequest{
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct JoinOnlineMatchResponse{
     pub match_id: String,
+    pub turn_number: u32,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct UpdateOnlineMatchRequest{
+    pub match_id: String,
+    pub turn_number: u32,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct UpdateOnlineMatchResponse{
+    pub match_id: String,
+    pub board_status: YEN,
 }

@@ -61,11 +61,7 @@ export function requestBotMove(matchId: string) {
       }
       
       // 3. Si todo va bien, intentamos convertir ese texto a JSON
-      try {
-        return JSON.parse(text);
-      } catch (e) {
-        throw new Error(`El servidor devolvió texto en vez de JSON: ${text}`);
-      }
+      return JSON.parse(text);
     })
     .catch((err) => {
       console.error("[GameApi] requestBotMove error:", err.message);

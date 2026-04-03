@@ -32,37 +32,32 @@ const RankingTableLocal: React.FC<Props> = ({ data, title, onReplay }) => {
             </div>
 
             <div className={styles.rankingList}>
-                {pageData.map((item, index) => (
-                    <div
+                {pageData.map((item, index) => onReplay ? (
+                    <button
                         key={`rank-${index}-${item.player1Name}`}
-                        className={`${styles.rankingItem} ${onReplay ? styles.clickableRow : ''}`}
-                        // A11y Fixes:
-                        onClick={onReplay ? () => onReplay(item) : undefined}
-                        role={onReplay ? 'button' : undefined}
-                        tabIndex={onReplay ? 0 : undefined}
-                        onKeyDown={onReplay ? (e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                                e.preventDefault();
-                                onReplay(item);
-                            }
-                        } : undefined}
+                        type="button"
+                        className={`${styles.rankingItem} ${styles.clickableRow} ${styles.buttonRow}`}
+                        onClick={() => onReplay(item)}
                     >
                         <span className={styles.rankName}>{item.player1Name}</span>
                         <span className={styles.vsLabel}>VS</span>
                         <span className={styles.rankName}>{item.player2Name}</span>
                         <span className={styles.rankResult}>{item.result}</span>
                         <span className={styles.rankTime}>{formatTime(item.time)}</span>
-                        {onReplay && (
-                            <span className={styles.replayCell}>
-                <button
-                    className={styles.replayBtnMobile}
-                    onClick={e => { e.stopPropagation(); onReplay(item); }}
-                    aria-label="Watch replay"
-                >
-                  Replay
-                </button>
-              </span>
-                        )}
+                        <span className={styles.replayCell}>
+                            <span className={styles.replayBtnMobile}>Replay</span>
+                        </span>
+                    </button>
+                ) : (
+                    <div
+                        key={`rank-${index}-${item.player1Name}`}
+                        className={styles.rankingItem}
+                    >
+                        <span className={styles.rankName}>{item.player1Name}</span>
+                        <span className={styles.vsLabel}>VS</span>
+                        <span className={styles.rankName}>{item.player2Name}</span>
+                        <span className={styles.rankResult}>{item.result}</span>
+                        <span className={styles.rankTime}>{formatTime(item.time)}</span>
                     </div>
                 ))}
             </div>

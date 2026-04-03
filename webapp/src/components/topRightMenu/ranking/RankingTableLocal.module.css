@@ -46,6 +46,17 @@
   transition: background 0.12s;
 }
 
+/* Resets browser defaults when the row is rendered as a <button> */
+.buttonRow {
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-bottom: 0.0625rem solid rgba(255, 255, 255, 0.05);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
 /* Clickable rows: pointer cursor + hover highlight */
 .clickableRow {
   cursor: pointer;

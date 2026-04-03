@@ -41,7 +41,13 @@ const GAME_MANAGER_URL = process.env.GAMEMANAGER_URL || 'http://localhost:5000';
 const AUTH_URL = process.env.AUTH_URL || 'http://localhost:4001';
 
 // 3. CORS Configuration Middleware
-const allowedOrigins = new Set(['http://20.250.145.156', 'http://localhost', 'http://localhost:80', 'http://localhost:5173']);
+const deployHost = process.env.DEPLOY_HOST;
+const allowedOrigins = new Set([
+  ...(deployHost ? [`https://${deployHost}`] : []),
+  'http://localhost',
+  'http://localhost:80',
+  'http://localhost:5173',
+]);
 
 app.use((req, res, next) => {
   const origin = req.headers.origin;

@@ -329,7 +329,7 @@ async fn request_online_update(
             .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
         // If turn matches current, we return the board
-        if yen.current_turn == payload.player_id {
+        if yen.turn == payload.player_id {
             return Ok(Json(UpdateOnlineMatchResponse { board_status: yen }));
         }
 

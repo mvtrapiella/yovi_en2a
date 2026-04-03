@@ -228,9 +228,9 @@ async fn update_user_score(
 ) -> Result<Json<UpdateScoreResponse>, (StatusCode, String)> {
     
     crate::firebase::update_score(
-        &payload.playerid, 
-        &payload.username, 
-        payload.is_win, 
+        &payload.playerid,
+        &payload.username,
+        payload.is_win,
         payload.time
     ).await.map_err(|e| {
         eprintln!("🚨 ERROR ACTUALIZANDO SCORE: {:?}", e);

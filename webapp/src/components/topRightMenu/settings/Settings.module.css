@@ -78,8 +78,8 @@
   border-radius: 1rem;
 }
 
-/* --- MOBILE RESPONSIVENESS (Fixes Disappearing Text) --- */
-@media (max-width: 48rem) {
+/* --- MOBILE RESPONSIVENESS --- */
+@media (max-width: 45rem) {
   .settingsBody {
     /* Stack components vertically so panel isn't pushed horizontally */
     flex-direction: column;
@@ -130,5 +130,31 @@
   
   .sectionLabel {
     font-size: 1.2rem;
+  }
+
+  .tabContent {
+    padding: 1rem;
+  }
+}
+
+/* ── Mobile < 30rem ── */
+@media (max-width: 30rem) {
+  .sidebarButtons button {
+    padding: 0 0.9rem;
+    height: 3rem;
+    line-height: 3rem;
+    font-size: 0.7rem;
+  }
+
+  .settingsPanelHeader {
+    padding: 0.75rem;
+  }
+
+  .sectionLabel {
+    font-size: 1rem;
+  }
+
+  .tabContent {
+    padding: 0.75rem;
   }
 }

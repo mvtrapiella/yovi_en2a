@@ -176,7 +176,7 @@ pub async fn get_ranking_time() -> Result<Vec<Score>, Box<dyn Error>> {
 /// Si el jugador no existe en la base de datos, lo crea automáticamente.
 pub async fn update_score(
     playerid: &str,
-    username: &str, 
+    username: &str,
     is_win: bool,
     time: f32,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
@@ -265,7 +265,7 @@ pub async fn insert_score(
         losses,
         win_rate: win_rate as std::ffi::c_float,
         elo,
-        best_time: time, 
+        best_time: time,
     };
 
     db.fluent()

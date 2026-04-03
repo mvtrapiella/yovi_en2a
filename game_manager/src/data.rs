@@ -199,18 +199,39 @@ pub struct SaveMatchResponse {
     pub message: String,
 }
 
-    #[derive(Serialize, Deserialize, Debug, Clone)]
-    pub struct PlayResponse {
-        /// The API version used for this request.
-        pub api_version: String,
-        /// The bot that selected this move.
-        pub bot_id: String,
-        /// The coordinates where the bot chose to place its piece.
-        pub coords: Coordinates,
-        /// The updated board state in YEN notation after the bot's move.
-        pub position: YEN,
-        /// Whether the game is finished after this move.
-        pub game_over: bool,
-        /// The winner's symbol ("B" or "R") if the game is over, otherwise null.
-        pub winner: Option<String>,
-    }
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct PlayResponse {
+    /// The API version used for this request.
+    pub api_version: String,
+    /// The bot that selected this move.
+    pub bot_id: String,
+    /// The coordinates where the bot chose to place its piece.
+    pub coords: Coordinates,
+    /// The updated board state in YEN notation after the bot's move.
+    pub position: YEN,
+    /// Whether the game is finished after this move.
+    pub game_over: bool,
+    /// The winner's symbol ("B" or "R") if the game is over, otherwise null.
+    pub winner: Option<String>,
+}
+
+// Online matches
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct CreateOnlineMatchRequest{
+    pub match_id: String,
+    pub match_password: String,
+}
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct CreateOnlineMatchResponse{
+    pub match_id: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct JoinOnlineMatchRequest{
+    pub match_id: String,
+    pub match_password: String,
+}
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct JoinOnlineMatchResponse{
+    pub match_id: String,
+}

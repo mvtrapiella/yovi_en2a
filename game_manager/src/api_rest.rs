@@ -269,15 +269,27 @@ async fn save_match(
     crate::firebase::insert_match_by_id(&payload.match_id, match_data)
         .await
         .map_err(|e| {
-            eprintln!("ERROR GUARDANDO PARTIDA: {:?}", e);
-            (StatusCode::INTERNAL_SERVER_ERROR, "Error guardando la partida en Firebase".to_string())
+            eprintln!("Error saving the match: {:?}", e);
+            (StatusCode::INTERNAL_SERVER_ERROR, "Error saving the match in Firebase".to_string())
         })?;
 
     // 5. Devolvemos éxito al frontend
     Ok(Json(SaveMatchResponse { 
-        message: "Partida guardada en el historial correctamente".to_string() 
+        message: "Match saved correctly".to_string()
     }))
 }
+
+// Online matches
+async fn create_online_match(Json(payload): Json<CreateOnlineMatchRequest>) -> Result<Json<CreateOnlineMatchResponse>, (StatusCode, String)> {
+
+
+}
+
+async fn join_online_match(Json(payload): Json<JoinOnlineMatchRequest>) -> Result<Json<JoinOnlineMatchResponse>, (StatusCode, String)> {
+
+
+}
+
 
 impl FromRef<Arc<AppState>> for AppState {
     fn from_ref(state: &Arc<AppState>) -> Self {
@@ -310,10 +322,13 @@ pub async fn run() {
         .route("/bestTimes", get(get_best_times))
         .route("/updateScore", post(update_user_score))
         .route("/saveMatch", post(save_match))
+        .route("/createMatch", post(create_online_match)) // We add creation and connection for matches
+        .route("/joinMatch", post(join_online_match))
+
         .with_state(state);
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 5000));
-    println!("🚀 GameManager escuchando en http://{}", addr);
+    println!("GameManager listening in http://{}", addr);
 
     let listener = TcpListener::bind(addr).await.unwrap();
     axum::serve(listener, app).await.unwrap();

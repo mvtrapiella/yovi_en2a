@@ -17,8 +17,8 @@
 
 .rankingList {
   flex: 1;
-  overflow-y: auto;
   min-height: 0;
+  overflow: hidden;
   padding-right: 0.5rem;
 }
 

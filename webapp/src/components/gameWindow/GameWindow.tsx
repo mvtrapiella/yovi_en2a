@@ -9,6 +9,7 @@ import { createMatch, sendMove, requestBotMove, updateScore, saveMatch } from ".
 import { Game, toXYZ, fromXYZ } from "./Game";
 import { useTimer } from "./rightPanel/Timer";
 import modalStyles from "./GameModal.module.css";
+import { useUser } from "../../contexts/UserContext";
 
 export type Move = {
   row: number;
@@ -17,12 +18,6 @@ export type Move = {
 };
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
-// Función auxiliar para leer la cookie de usuario
-const getCookieUser = () => {
-  const cookieMatch = document.cookie.match(/(?:^|; )user=([^;]*)/);
-  return cookieMatch ? JSON.parse(decodeURIComponent(cookieMatch[1])) : null;
-};
 
 // Función para convertir "02:30" a 150 segundos
 const timeToSeconds = (timeStr: string) => {
@@ -33,12 +28,10 @@ const timeToSeconds = (timeStr: string) => {
 const GameWindow = () => {
   const { size: urlSize, mode: urlMode } = useParams();
   const navigate = useNavigate();
+  const { user: currentUser } = useUser();
 
   const size = urlSize ? Number.parseInt(urlSize, 10) : 8;
   const mode = urlMode;
-
-  // Si el usuario está logueado, usamos su nombre, si no, "Player 1"
-  const currentUser = getCookieUser();
   const player1 = currentUser ? currentUser.username : "Player 1";
   const player2 = mode === "multi" ? "Player 2" : mode+"";
 
@@ -80,7 +73,9 @@ const GameWindow = () => {
   }
 
   // --- NUEVA FUNCIÓN PARA GESTIONAR EL FINAL DEL JUEGO ---
-  const handleGameOver = (isPlayer1Winner: boolean) => {
+  // finishedMoves must be passed in explicitly — reading game.moves here would give
+  // the stale snapshot from before the winning move was added.
+  const handleGameOver = (isPlayer1Winner: boolean, finishedMoves: Move[]) => {
     const winnerName = isPlayer1Winner ? player1 : player2;
     setModalMessage(`Game finished! ${winnerName} won.`);
 
@@ -93,7 +88,8 @@ const GameWindow = () => {
       updateScore(currentUser.email, currentUser.username, isPlayer1Winner, timeInSeconds);
 
       // 2. Guardar el historial de la partida (Requiere endpoint en Rust)
-      saveMatch(game.matchId, currentUser.email, player2, resultString, timeInSeconds);
+      const movesAsCoords = finishedMoves.map(m => toXYZ(m.row, m.col, size));
+      saveMatch(game.matchId, currentUser.email, player2, resultString, timeInSeconds, movesAsCoords);
     }
   };
 
@@ -115,7 +111,7 @@ const GameWindow = () => {
 
       if (data.game_over) {
         // game.turn era 0 (Player 1) al hacer el movimiento que dio la victoria
-        handleGameOver(game.turn === 0);
+        handleGameOver(game.turn === 0, updatedGame.moves);
         return;
       }
 
@@ -149,7 +145,7 @@ const GameWindow = () => {
       setGame(botGame);
 
       if (botData.game_over) {
-          handleGameOver(false); // Falso porque ganó el Bot (Jugador 2)
+          handleGameOver(false, botGame.moves); // Falso porque ganó el Bot (Jugador 2)
       }
     } finally {
       // Dejamos de cargar si el bot ha terminado

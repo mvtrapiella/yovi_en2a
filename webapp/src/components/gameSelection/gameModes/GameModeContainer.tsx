@@ -1,6 +1,5 @@
 import React, { useState } from "react";
-// 1. Importamos useNavigate
-import { useNavigate } from "react-router-dom"; 
+import { useNavigate, useLocation } from "react-router-dom";
 import { type GameMode, Difficulty } from "./GameMode";
 import { Difficulty as DifficultyValues } from "./GameMode";
 import styles from "./GameModeContainer.module.css";
@@ -13,8 +12,9 @@ type Props = {
 export const GameModeContainer: React.FC<Props> = ({ mode }) => {
   const difficulties: Difficulty[] = Object.values(DifficultyValues);
   
-  // 2. Inicializamos navigate
   const navigate = useNavigate();
+  const location = useLocation();
+  const isGuest = location.state?.guest === true;
 
   // State for Difficulty
   const [currentDifficultyIndex, setCurrentDifficultyIndex] = useState(
@@ -126,10 +126,9 @@ export const GameModeContainer: React.FC<Props> = ({ mode }) => {
           mode.currentLevel = currentDifficulty;
           mode.size = currentSize;
 
-          // 3. Navegamos directamente a la URL de juego pasándole el tamaño
-          if (mode.showDifficulty){navigate(`/play/${currentSize}/${currentDifficulty[1]}`);}
-
-          else{navigate(`/play/${currentSize}/multi`);}
+          const navState = isGuest ? { state: { guest: true } } : undefined;
+          if (mode.showDifficulty) { navigate(`/play/${currentSize}/${currentDifficulty[1]}`, navState); }
+          else { navigate(`/play/${currentSize}/multi`, navState); }
         }}
       >
         PLAY

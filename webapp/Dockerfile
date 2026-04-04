@@ -15,17 +15,14 @@ RUN export VITE_API_URL=${VITE_API_URL} && npm run build
 
 # Production image
 FROM nginx:stable-alpine
-RUN apk add --no-cache openssl
 
-# Generate a self-signed TLS certificate for the deploy host IP
-ARG DEPLOY_HOST=localhost
-RUN mkdir -p /etc/nginx/ssl && \
-    printf '[req]\ndistinguished_name=dn\nx509_extensions=v3_req\nprompt=no\n[dn]\nCN=%s\n[v3_req]\nsubjectAltName=IP:%s,DNS:localhost\n' \
-      "${DEPLOY_HOST}" "${DEPLOY_HOST}" > /tmp/openssl.cnf && \
-    openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-      -keyout /etc/nginx/ssl/nginx.key \
-      -out /etc/nginx/ssl/nginx.crt \
-      -config /tmp/openssl.cnf
+# Download the sslip.io publicly trusted wildcard certificate and key
+RUN apk add --no-cache wget && \
+    mkdir -p /etc/nginx/ssl && \
+    wget -qO /etc/nginx/ssl/sslip.pem \
+      https://raw.githubusercontent.com/cunnie/sslip.io/main/etc/nginx/ssl/sslip.io%2Bchain.pem && \
+    wget -qO /etc/nginx/ssl/sslip.key \
+      https://raw.githubusercontent.com/cunnie/sslip.io/main/etc/nginx/ssl/sslip.io.key
 
 COPY --from=builder /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf

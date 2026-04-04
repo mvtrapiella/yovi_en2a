@@ -37,13 +37,3 @@
 
 /* Player2: color rojo */
 .hex--player2 { background: rgba(255,80,80,0.62); border-color: rgb(255, 3, 3); }
-
-/* Mobiler*/
-
-
-@media (max-width: 480px) {
-  .hex {
-    width: clamp(24px, 8vw, 40px);
-    height: clamp(28px, 9vw, 40px);
-  }
-}

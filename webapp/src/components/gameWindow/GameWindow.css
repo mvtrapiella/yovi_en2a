@@ -54,12 +54,6 @@
 
 /* Mobile and tablet */
 @media (max-width: 1024px) {
-  .game-window {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-  }
-
   .mobile-menu-button {
     display: block;
     position: fixed;
@@ -78,11 +72,6 @@
     box-shadow: none;
   }
 
-  .center-area > * {
-    position: relative;
-    z-index: 1;
-  }
-
  .rightpanel-container.open {
     display: flex;
     justify-content: center;
@@ -93,5 +82,4 @@
     top: 9rem;
     z-index: 50;
   }
-  
 }

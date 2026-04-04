@@ -306,6 +306,38 @@ fn connected_groups(board: &GameY, player: PlayerId) -> Vec<Vec<Coordinates>> {
     groups
 }
 
+/// Returns `true` if `cell` touches the given `side` (0 = A, 1 = B, 2 = C).
+fn on_target_side(cell: &Coordinates, side: u8) -> bool {
+    match side {
+        0 => cell.touches_side_a(),
+        1 => cell.touches_side_b(),
+        _ => cell.touches_side_c(),
+    }
+}
+
+/// Relaxes a single neighbour in the 0-1 BFS used by [`dist_to_side`].
+///
+/// Skips the neighbour if it is not passable or already visited. Otherwise,
+/// computes its tentative distance (0 if it belongs to the group, 1 otherwise)
+/// and updates `dist`/`deque` when a shorter path is found.
+fn relax_neighbour(
+    neighbour: &Coordinates,
+    current_dist: i32,
+    group_set: &HashSet<Coordinates>,
+    passable: &HashSet<Coordinates>,
+    visited: &HashSet<Coordinates>,
+    dist: &mut HashMap<Coordinates, i32>,
+    deque: &mut VecDeque<Coordinates>,
+) {
+    if !passable.contains(neighbour) || visited.contains(neighbour) { return; }
+    let cost = if group_set.contains(neighbour) { 0 } else { 1 };
+    let new_dist = current_dist + cost;
+    if new_dist < *dist.get(neighbour).unwrap_or(&UNREACHABLE) {
+        dist.insert(*neighbour, new_dist);
+        if cost == 0 { deque.push_front(*neighbour); } else { deque.push_back(*neighbour); }
+    }
+}
+
 /// Computes the minimum number of empty cells needed to connect `group` to `side`
 ///
 /// Uses 0-1 BFS (deque): moving through an already-owned cell in the group costs 0,
@@ -325,22 +357,9 @@ fn dist_to_side(group: &[Coordinates], side: u8, passable: &HashSet<Coordinates>
     while let Some(current) = deque.pop_front() {
         if !visited.insert(current) { continue; }
         let current_dist = dist[&current];
-
-        let on_side = match side {
-            0 => current.touches_side_a(),
-            1 => current.touches_side_b(),
-            _ => current.touches_side_c(),
-        };
-        if on_side { return current_dist; }
-
+        if on_target_side(&current, side) { return current_dist; }
         for neighbour in neighbours(&current) {
-            if !passable.contains(&neighbour) || visited.contains(&neighbour) { continue; }
-            let cost = if group_set.contains(&neighbour) { 0 } else { 1 };
-            let new_dist = current_dist + cost;
-            if new_dist < *dist.get(&neighbour).unwrap_or(&UNREACHABLE) {
-                dist.insert(neighbour, new_dist);
-                if cost == 0 { deque.push_front(neighbour); } else { deque.push_back(neighbour); }
-            }
+            relax_neighbour(&neighbour, current_dist, &group_set, passable, &visited, &mut dist, &mut deque);
         }
     }
     UNREACHABLE

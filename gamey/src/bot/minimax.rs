@@ -132,11 +132,12 @@ impl YBot for MinimaxBot {
         let mut best_move = board.available_cells().first()
             .map(|&idx| Coordinates::from_index(idx, board.board_size()));
 
-        for d in 1u32.. {
+        let max_depth = board.available_cells().len() as u32;
+        for d in 1u32..=max_depth {
             let start = std::time::Instant::now();
             let (candidate, score) = search_at_depth(board, bot, d);
             if let Some(m) = candidate { best_move = Some(m); }
-            if score >= WIN_SCORE { break; } // found a forced win, no need to go deeper
+            if score >= WIN_SCORE || score <= LOSS_SCORE { break; } // outcome determined, no point going deeper
             if start.elapsed().as_secs_f64() >= AUTO_TIME_LIMIT_SECS { break; }
         }
         best_move

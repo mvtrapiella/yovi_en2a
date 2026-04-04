@@ -16,7 +16,28 @@ const tabs: Tab[] = [
   { id: 'gameRules',  label: 'Game Rules',  component: <GameRulesHelp /> },
 ];
 
-type Props = { onClose: () => void };
+type NavItemsProps = {
+  tabs: Tab[];
+  activeTab: string;
+  onTabClick: (id: string) => void;
+};
+
+/* Create navigation */
+  const NavItems = ({ tabs, activeTab, onTabClick }: NavItemsProps) => (
+    <>
+      {tabs.map(tab => (
+        <button
+          key={tab.id}
+          className={activeTab === tab.id ? 'active' : ''}
+          onClick={() => onTabClick(tab.id)}
+        >
+          {tab.label}
+        </button>
+      ))}
+    </>
+  );
+
+type Props = { readonly onClose: () => void };
 
 export default function HelpMenu({ onClose }: Props) {
   const [activeTab, setActiveTab] = useState('mainMenu');
@@ -28,29 +49,15 @@ export default function HelpMenu({ onClose }: Props) {
     setMenuOpen(false);
   };
 
-  /* Create navigation */
-  const NavItems = () => (
-    <>
-      {tabs.map(tab => (
-        <button
-          key={tab.id}
-          className={activeTab === tab.id ? 'active' : ''}
-          onClick={() => handleTabClick(tab.id)}
-        >
-          {tab.label}
-        </button>
-      ))}
-    </>
-  );
 
   return (
-    <div className="help-menu-overlay" onClick={onClose}>
-      <div className="help-menu-panel" onClick={e => e.stopPropagation()}>
+    <div className="help-menu-overlay" onClick={onClose} role="presentation">
+      <div className="help-menu-panel" onClick={e => e.stopPropagation()} role="dialog">
         <button className="help-close-btn" onClick={onClose}>✕</button>
 
         <nav className="help-sidebar">
             <p>HELP</p>
-            <NavItems />
+            <NavItems tabs={tabs} activeTab={activeTab} onTabClick={handleTabClick} />
         </nav>
 
         {/* Mobile */}
@@ -64,7 +71,7 @@ export default function HelpMenu({ onClose }: Props) {
 
             {menuOpen && (
             <nav className="help-mobile-nav">
-                <NavItems />
+                <NavItems tabs={tabs} activeTab={activeTab} onTabClick={handleTabClick} />
             </nav>
             )}
 

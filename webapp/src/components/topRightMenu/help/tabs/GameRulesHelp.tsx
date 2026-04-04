@@ -12,7 +12,7 @@ export default function GameRulesHelp() {
           Connect all three sides of the board with a consecutive chain
           before your opponent does.
         </p>
-        <img src={board} alt="Image of the board in a game" />
+        <img src={board} alt="Board in a game" />
 
       </section>
 
@@ -23,7 +23,7 @@ export default function GameRulesHelp() {
 
         <p></p>
         <p>The player turn is indicated on the screen.</p>
-        <img src={players} alt="Image of the players in a game" />
+        <img src={players} alt="Players in a game" />
       </section>
 
       <section>
@@ -37,7 +37,7 @@ export default function GameRulesHelp() {
       <section>
         <h3>Timer</h3>
         <p> Each match has a timer running from the start.</p>
-        <img src={timer} alt="Image of the timer in a game" />
+        <img src={timer} alt="Timer in a game" />
         <p>Your total time is recorded at the end of the game and used in the rankings if you are logged in.</p>
       </section>
     </div>

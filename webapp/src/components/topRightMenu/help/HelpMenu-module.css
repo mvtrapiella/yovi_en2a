@@ -4,7 +4,6 @@
   
   inset: 0;
   background: rgba(0, 0, 0, 0.7);
-  display: flex;
   align-items: center;
   justify-content: center;
 }
@@ -58,14 +57,14 @@
 .help-sidebar button:hover,
 .help-mobile-nav button:hover { 
   color: #fff; 
-  background: rgba(255,255,255,0.04); 
+  background: rgba(255,255,255,0.1); 
 }
 
 .help-sidebar button.active,
 .help-mobile-nav button.active { 
   color: #fff; 
   border-left-color: #3b82f6; 
-  background: rgba(59,130,246,0.08); 
+  background: rgba(59,130,246,0.2); 
 }
 
 .help-content {
@@ -73,7 +72,6 @@
   overflow-y: auto;
   padding: 2rem;
   text-align: left;
-  overflow-y: auto;
 }
 
 .help-mobile { display: none; }
@@ -98,7 +96,7 @@
   font-size: 15px; 
   font-weight: 500; 
   color: #3b82f6; 
-  margin: 1 0 0.25rem; 
+  margin: 1rem 0 0.25rem; 
 }
 
 .help-content img {

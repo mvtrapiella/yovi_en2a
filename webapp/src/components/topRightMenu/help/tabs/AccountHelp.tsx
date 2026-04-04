@@ -13,7 +13,7 @@ export default function AccountHelp() {
         <p> Play a game immediately without creating an account. </p>
         <p> Your matches won't be saved and you won't appear in the rankings.</p>
 
-        <img src={playGuest} alt="Image of the main menu" />
+        <img src={playGuest} alt="Main menu" />
       </section>
 
       <section>
@@ -22,13 +22,13 @@ export default function AccountHelp() {
           Register with your email to get a persistent profile. 
           Once registered, all your wins, losses, and best times will be recorded.
         </p>
-        <img src={register} alt="Image of the registration window" />
+        <img src={register} alt="Registration window" />
       </section>
 
       <section>
         <h3>Log in</h3>
         <p>Log in with your email and password to access your full profile. </p>
-        <img src={login} alt="Image of the log in window" />
+        <img src={login} alt="Log in window" />
         <p> Your match history, stats, and ranking position are all tied to your account.</p>
       </section>
 

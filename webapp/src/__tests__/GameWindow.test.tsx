@@ -5,10 +5,12 @@ import * as GameApi from '../api/GameApi';
 
 // Mock router
 const mockNavigate = vi.fn();
+const mockUseUser = vi.fn().mockReturnValue({ user: null, setUser: vi.fn() });
 
 vi.mock('react-router-dom', () => ({
   useParams: () => ({ size: '3', mode: 'bot' }),
   useNavigate: () => mockNavigate,
+  Link: ({ children }: { children: React.ReactNode }) => <a>{children}</a>,
 }));
 
 // Mock timer
@@ -19,8 +21,13 @@ vi.mock('../components/gameWindow/rightPanel/Timer', () => ({
   }),
 }));
 
+// Mock User Context
+vi.mock('../contexts/UserContext', () => ({
+  useUser: () => mockUseUser(),
+}));
+
 // Mock visual components
-vi.mock('../components/gameWindow/topLeftHeader/TopLeftHeader', () => ({
+vi.mock('../components/topLeftHeader/TopLeftHeader', () => ({
   default: () => <div>TopLeftHeader</div>,
 }));
 
@@ -74,7 +81,7 @@ describe('GameWindow component', () => {
     render(<GameWindow />);
 
     await waitFor(() => {
-      expect(createMatchSpy).toHaveBeenCalledWith('Player 1', 'random_bot', 3);
+      expect(createMatchSpy).toHaveBeenCalledWith('Player 1', 'bot', 3);
     });
   });
 
@@ -143,18 +150,16 @@ describe('GameWindow component', () => {
   });
 
   test('GameWindow updates score and saves match when logged user wins', async () => {
-    const userData = JSON.stringify({
-      username: 'Marta',
-      email: 'marta@test.com',
+    mockUseUser.mockReturnValue({
+      user: { username: 'Marta', email: 'marta@test.com' },
+      setUser: vi.fn(),
     });
-    document.cookie = `user=${encodeURIComponent(userData)}`;
 
     vi.spyOn(GameApi, 'createMatch').mockResolvedValue({ match_id: 'match-123' });
     vi.spyOn(GameApi, 'sendMove').mockResolvedValue({ game_over: true });
 
     const updateScoreSpy = vi.spyOn(GameApi, 'updateScore').mockResolvedValue({});
     const saveMatchSpy = vi.spyOn(GameApi, 'saveMatch').mockResolvedValue({});
-
     render(<GameWindow />);
 
     await waitFor(() => {
@@ -175,9 +180,25 @@ describe('GameWindow component', () => {
     expect(saveMatchSpy).toHaveBeenCalledWith(
       'match-123',
       'marta@test.com',
-      'random_bot',
+      'bot',
       'Win',
-      150
+      150,
+      expect.any(Array)
     );
+  });
+
+  test('GameWindow toggles mobile panel on button click', async () => {
+    vi.spyOn(GameApi, 'createMatch').mockResolvedValue({ match_id: 'match-123' });
+
+    render(<GameWindow />);
+
+    const toggleBtn = screen.getByRole('button', { name: '☰' });
+    expect(toggleBtn).toBeTruthy();
+
+    fireEvent.click(toggleBtn);
+    expect(screen.getByRole('button', { name: '✕' })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: '✕' }));
+    expect(screen.getByRole('button', { name: '☰' })).toBeTruthy();
   });
 });

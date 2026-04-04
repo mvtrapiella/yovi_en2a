@@ -128,7 +128,7 @@ const GameWindow = () => {
       let t1 = Date.now();
       const botData = await requestBotMove(currentGame.matchId!);
       let t2 = Date.now();
-      if(t2-t1 < 500) await sleep(Math.random()*500 + 500)
+      if(t2-t1 < 500) await sleep(crypto.getRandomValues(new Uint32Array(1))[0] / 0xFFFFFFFF * 500 + 500)
       if (!botData) return;
 
       const x = botData.coordinates?.x ?? botData.coord_x ?? botData.x;

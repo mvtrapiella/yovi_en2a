@@ -42,18 +42,20 @@ const AUTH_URL = process.env.AUTH_URL || 'http://localhost:4001';
 
 // 3. CORS Configuration Middleware
 const deployHost = process.env.DEPLOY_HOST;
-const allowedOrigins = new Set([
+const allowedOriginsList = [
   ...(deployHost ? [`https://${deployHost}`] : []),
   'http://localhost',
   'http://localhost:80',
   'http://localhost:5173',
-]);
+];
 
 app.use((req, res, next) => {
   const origin = req.headers.origin;
+  // Look up the origin from our own trusted list so the header value is never user-controlled
+  const matchedOrigin = allowedOriginsList.find(o => o === origin);
 
-  if (allowedOrigins.has(origin)) {
-    res.setHeader('Access-Control-Allow-Origin', origin);
+  if (matchedOrigin) {
+    res.setHeader('Access-Control-Allow-Origin', matchedOrigin);
     // Credentials (cookies) require a specific origin
     res.setHeader('Access-Control-Allow-Credentials', 'true');
   } else if (!origin && process.env.NODE_ENV !== 'production') {

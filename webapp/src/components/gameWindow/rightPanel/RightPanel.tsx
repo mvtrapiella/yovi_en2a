@@ -10,6 +10,7 @@ type Props = {
 export default function RightPanel({ turn, time = "00:00", mode }: Readonly<Props>) {
   const { user } = useUser();
   const isP1 = turn === 1;
+  const isP2 = !isP1;
 
   const Player = ({ name, isBlue, isActive, meta }: { name: string; isBlue: boolean; isActive: boolean; meta: string }) => (
     <div className={`rightpanel-player ${isActive ? "active" : ""}`}>

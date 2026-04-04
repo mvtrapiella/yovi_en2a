@@ -319,8 +319,8 @@ async fn request_online_update(
     Json(payload): Json<UpdateOnlineMatchRequest>
 ) -> Result<Json<UpdateOnlineMatchResponse>, (StatusCode, String)> {
 
-    // We try for ~10 seconds
-    for _ in 0..20 {
+    // We try for ~20 seconds
+    for _ in 0..40 {
         let yen_json = redis_client::get_match_state(&state.redis_pool, &payload.match_id)
             .await
             .map_err(|_| (StatusCode::NOT_FOUND, "Match not found".to_string()))?;

@@ -32,7 +32,7 @@ const GameWindow = () => {
 
   const size = urlSize ? Number.parseInt(urlSize, 10) : 8;
   const mode = urlMode;
-  const isMultiplayer = mode === "multi";
+  const isMultiplayer = mode === "multi" || mode === "why_not";
   const player1 = currentUser ? currentUser.username : "Player 1";
   const player2 = isMultiplayer ? "Player 2" : mode+"";
 

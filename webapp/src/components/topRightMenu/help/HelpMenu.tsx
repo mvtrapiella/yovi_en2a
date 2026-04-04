@@ -51,8 +51,8 @@ export default function HelpMenu({ onClose }: Props) {
 
 
   return (
-    <div className="help-menu-overlay" onClick={onClose} role="presentation">
-      <div className="help-menu-panel" onClick={e => e.stopPropagation()} role="dialog">
+    <div className="help-menu-overlay" onClick={onClose} onKeyDown={e => e.key === 'Escape' && onClose()} role="presentation">
+      <div className="help-menu-panel" onClick={e => e.stopPropagation()} onKeyDown={e => e.stopPropagation()} role="dialog">
         <button className="help-close-btn" onClick={onClose}>✕</button>
 
         <nav className="help-sidebar">

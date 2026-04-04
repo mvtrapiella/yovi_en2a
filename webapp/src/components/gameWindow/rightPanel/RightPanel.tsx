@@ -13,6 +13,7 @@ export default function RightPanel({turn,time = "00:00",mode,}: Readonly<Props>)
   const { user } = useUser();
   const player1Name = user?.username ?? 'Player 1';
   const isP1 = turn === 1;
+  const isP2 = !isP1;
 
   return (
     
@@ -43,14 +44,14 @@ export default function RightPanel({turn,time = "00:00",mode,}: Readonly<Props>)
         </div>
 
         {/* Player 2 */}
-        <div className={`rightpanel-player ${!isP1 ? "active" : ""}`}>
+        <div className={`rightpanel-player ${isP2 ? "active" : ""}`}>
           <div className="rightpanel-left">
             <span className="dot red" />
             <div>
               <div className="rightpanel-name">Player 2</div>
               <div className="rightpanel-meta">{mode === "bot" ? "Bot" : "Human"}</div>            </div>
           </div>
-          <span className="rightpanel-chip">{!isP1 ? "YOUR TURN" : "WAITING"}</span>
+          <span className="rightpanel-chip">{isP2 ? "YOUR TURN" : "WAITING"}</span>
         </div>
       </section>
 

@@ -34,4 +34,3 @@ RUN sed "s/DEPLOY_HOST_PLACEHOLDER/${DEPLOY_HOST}/g" /tmp/nginx.conf.template \
 #      > /etc/nginx/conf.d/default.conf
 
 EXPOSE 80 443
-CMD ["nginx", "-g", "daemon off;"]

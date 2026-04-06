@@ -62,7 +62,7 @@ export const GameModeContainer: React.FC<Props> = ({ mode }) => {
 
       {/* Center: Image */}
       <div className={styles.imageContainer}>
-        <img src={imagenGameY} alt={mode.label} />
+        <img src={mode.image ?? imagenGameY} alt={mode.label} />
       </div>
 
       {/* Controls Wrapper: Side-by-side layout to save vertical space */}

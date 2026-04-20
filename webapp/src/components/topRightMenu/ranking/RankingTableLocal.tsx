@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styles from './RankingTableLocal.module.css';
 import type { RankingElementLocal } from "./rankingElements/RankingElementLocal";
 import Pagination, { usePagination } from './Pagination';
@@ -17,6 +18,7 @@ interface Props {
 }
 
 const RankingTableLocal: React.FC<Props> = ({ data, title, onReplay, showPosition }) => {
+    const { t } = useTranslation();
     const { currentPage, setCurrentPage, totalPages, pageData, visiblePages } = usePagination(data);
 
     const rowClass = (extra = '') =>
@@ -27,12 +29,12 @@ const RankingTableLocal: React.FC<Props> = ({ data, title, onReplay, showPositio
             <h3 className={styles.rankingSubtitle}>{title}</h3>
 
             <div className={`${styles.rankingHeaderRow} ${showPosition ? styles.withPosition : ''}`}>
-                {showPosition && <span>POS</span>}
-                <span className={styles.rankName}>PLAYER 1</span>
+                {showPosition && <span>{t('rankings.table.pos')}</span>}
+                <span className={styles.rankName}>{t('rankings.table.player1')}</span>
                 <span className={styles.vsLabel}></span>
-                <span className={styles.rankName}>PLAYER 2</span>
-                <span>RESULT</span>
-                <span>TIME</span>
+                <span className={styles.rankName}>{t('rankings.table.player2')}</span>
+                <span>{t('rankings.table.result')}</span>
+                <span>{t('rankings.table.time')}</span>
                 {onReplay && <span className={styles.replayColHeader}></span>}
             </div>
 
@@ -51,7 +53,7 @@ const RankingTableLocal: React.FC<Props> = ({ data, title, onReplay, showPositio
                         <span className={styles.rankResult}>{item.result}</span>
                         <span className={styles.rankTime}>{formatTime(item.time)}</span>
                         <span className={styles.replayCell}>
-                            <span className={styles.replayBtnMobile}>Replay</span>
+                            <span className={styles.replayBtnMobile}>{t('rankings.table.replay')}</span>
                         </span>
                     </button>
                 ) : (

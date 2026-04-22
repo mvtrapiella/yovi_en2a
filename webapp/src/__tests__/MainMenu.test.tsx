@@ -24,6 +24,19 @@ vi.mock('../contexts/UserContext', () => ({
   }))
 }))
 
+vi.mock('../contexts/AudioContext', () => ({
+  useAudio: () => ({
+    masterVolume: 80,
+    isMuted: false,
+    setMasterVolume: vi.fn(),
+    toggleMute: vi.fn(),
+    playMoveSound: vi.fn(),
+    playGameOverSound: vi.fn(),
+    playGameStartSound: vi.fn(),
+    playGameVictorySound: vi.fn(),
+  }),
+}))
+
 describe('MainMenu Component', () => {
   
   // Clear the mock before each test to ensure a clean slate

@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { useTranslation } from 'react-i18next';
 import baseStyles from './SettingsSection.module.css';
 import audioStyles from './AudioSettings.module.css';
 import { useAudio } from '../../../../contexts/AudioContext';
@@ -43,14 +42,12 @@ const VolumeSlider: React.FC<{ label: string; value: number; onChange: (v: numbe
 };
 
 const AudioSettingsPanel: React.FC = () => {
-  const { t } = useTranslation();
-  const { masterVolume, musicVolume, setMasterVolume, setMusicVolume } = useAudio();
+  const { masterVolume, setMasterVolume } = useAudio();
 
   return (
     <div className={baseStyles.tabPanel}>
-      <h3>{t('settings.audio.soundSettings')}</h3>
-      <VolumeSlider label={t('settings.audio.masterVolume')} value={masterVolume} onChange={setMasterVolume} />
-      <VolumeSlider label={t('settings.audio.musicVolume')}  value={musicVolume}  onChange={setMusicVolume}  />
+      <h3>Sound Settings</h3>
+      <VolumeSlider label="Master Volume" value={masterVolume} onChange={setMasterVolume} />
     </div>
   );
 };

@@ -10,6 +10,7 @@ import {
     isNoMatchesAvailable,
 } from "../../online/online";
 import { getPlayerId } from "../../online/playerId";
+import { useUser } from "../../../contexts/UserContext";
 
 type Props = {
     mode: GameMode;
@@ -19,7 +20,8 @@ export const GameModeContainer: React.FC<Props> = ({ mode }) => {
     const difficulties: Difficulty[] = Object.values(DifficultyValues);
     const navigate = useNavigate();
     const location = useLocation();
-    const isGuest = location.state?.guest === true;
+    const { user: currentUser } = useUser();
+    const isGuest = location.state?.guest === true || !currentUser;
 
     const [currentDifficultyIndex, setCurrentDifficultyIndex] = useState(
         difficulties.indexOf(mode.currentLevel)
@@ -53,34 +55,37 @@ export const GameModeContainer: React.FC<Props> = ({ mode }) => {
         }
     };
 
-    // --- Helper: navigate to waiting room after create/join success ---
     const goToWaiting = (
         matchIdValue: string,
         role: "create" | "join",
-        turnNumber: number
+        turnNumber: number,
+        resolvedSize: number
     ) => {
         navigate(`/waiting/${matchIdValue}`, {
             state: {
                 ...(isGuest && { guest: true }),
                 role,
                 turnNumber,
-                size: currentSize,
+                size: resolvedSize,
                 isPrivate: !!mode.showMatchId,
                 password: role === "create" ? password : undefined,
             },
         });
     };
 
-    // --- Create online match (used by both CREATE button and Join→Create fallback) ---
     const createFlow = async (): Promise<void> => {
+        // Public mode is always 8×8 regardless of the selector (which is
+        // hidden anyway). Private rooms respect the creator's choice.
+        const sizeForCreate = mode.hideSize ? 8 : currentSize;
+
         const playerId = getPlayerId();
         const res = await createOnlineMatch({
             player1id: playerId,
-            size: currentSize,
-            match_id: matchId,         // "" → random public match
-            match_password: password,  // ignored by backend when match_id is ""
+            size: sizeForCreate,
+            match_id: matchId,
+            match_password: password,
         });
-        goToWaiting(res.match_id, "create", res.turn_number);
+        goToWaiting(res.match_id, "create", res.turn_number, sizeForCreate);
     };
 
     const handleCreate = async () => {
@@ -95,7 +100,6 @@ export const GameModeContainer: React.FC<Props> = ({ mode }) => {
         }
     };
 
-    // --- Join (with auto-create fallback for public matches) ---
     const handleJoin = async () => {
         setError(null);
         setBusy("join");
@@ -103,14 +107,14 @@ export const GameModeContainer: React.FC<Props> = ({ mode }) => {
             const playerId = getPlayerId();
             const res = await joinOnlineMatch({
                 player2id: playerId,
-                match_id: matchId,         // "" → any public waiting match
+                match_id: matchId,
                 match_password: password,
             });
-            goToWaiting(res.match_id, "join", res.turn_number);
+            // The server owns the authoritative size (creator set it). We
+            // forward what we locally think it is; GameWindowOnline re-derives
+            // it from the URL so inconsistencies resolve themselves.
+            goToWaiting(res.match_id, "join", res.turn_number, currentSize);
         } catch (e: any) {
-            // Public-only scenario: nobody is waiting → create our own and wait.
-            // We only do this when the user did NOT specify a match id, to
-            // avoid silently creating private rooms with the wrong id/password.
             if (mode.showOnlyJoin && !matchId && isNoMatchesAvailable(e)) {
                 try {
                     await createFlow();
@@ -128,8 +132,16 @@ export const GameModeContainer: React.FC<Props> = ({ mode }) => {
 
     const buttonMode: "play" | "createJoin" | "joinOnly" =
         mode.showJoinCreate ? "createJoin"
-        : mode.showOnlyJoin ? "joinOnly"
-        : "play";
+            : mode.showOnlyJoin ? "joinOnly"
+                : "play";
+
+    // Private rooms (createJoin): hide the size selector as soon as the user
+    // starts typing a Match ID — it's the universal signal for "I'm joining
+    // someone else's room". For CREATE (empty matchId), the size selector
+    // stays so the creator can pick. Public joinOnly → always hidden.
+    const hideSizeSelector =
+        mode.hideSize ||
+        (buttonMode === "createJoin" && matchId.trim().length > 0);
 
     return (
         <div className={styles.gameModeContainer}>
@@ -171,26 +183,28 @@ export const GameModeContainer: React.FC<Props> = ({ mode }) => {
                     </div>
                 )}
 
-                <div className={styles.sizeSection}>
-                    <span className={styles.difficultyLabel}>Size</span>
-                    <div className={styles.difficultySelector}>
-                        <button
-                            className={styles.arrow}
-                            onClick={decreaseSize}
-                            style={{ visibility: currentSize > minSize ? "visible" : "hidden" }}
-                        >
-                            ←
-                        </button>
-                        <div className={styles.difficultyBox}>{currentSize}</div>
-                        <button
-                            className={styles.arrow}
-                            onClick={increaseSize}
-                            style={{ visibility: currentSize < maxSize ? "visible" : "hidden" }}
-                        >
-                            →
-                        </button>
+                {!hideSizeSelector && (
+                    <div className={styles.sizeSection}>
+                        <span className={styles.difficultyLabel}>Size</span>
+                        <div className={styles.difficultySelector}>
+                            <button
+                                className={styles.arrow}
+                                onClick={decreaseSize}
+                                style={{ visibility: currentSize > minSize ? "visible" : "hidden" }}
+                            >
+                                ←
+                            </button>
+                            <div className={styles.difficultyBox}>{currentSize}</div>
+                            <button
+                                className={styles.arrow}
+                                onClick={increaseSize}
+                                style={{ visibility: currentSize < maxSize ? "visible" : "hidden" }}
+                            >
+                                →
+                            </button>
+                        </div>
                     </div>
-                </div>
+                )}
 
                 {mode.showMatchId && (
                     <div className={styles.difficultySection}>

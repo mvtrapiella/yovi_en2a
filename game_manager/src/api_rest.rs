@@ -1,5 +1,5 @@
 use crate::redis_client;
-use crate::data::{EngineMoveRequest, EngineMoveResponse, EngineResponse, LocalRankingsRequest, LocalRankingsResponse, Match, MoveRequest, MoveResponse, NewMatchRequest, NewMatchResponse, PlayResponse, RankingTimeResponse, SaveMatchRequest, SaveMatchResponse, UpdateScoreRequest, UpdateScoreResponse, YEN, CreateOnlineMatchRequest, CreateOnlineMatchResponse,
+use crate::data::{EngineMoveRequest, EngineMoveResponse, EngineResponse, LocalRankingsRequest, LocalRankingsResponse, Match, MoveRequest, MoveResponse, NewMatchRequest, NewMatchResponse, PlayResponse, RankingTimeResponse, SaveMatchRequest, SaveMatchResponse, UpdateScoreRequest, UpdateScoreResponse, ValidResponse, YEN, CreateOnlineMatchRequest, CreateOnlineMatchResponse,
                   JoinOnlineMatchRequest, JoinOnlineMatchResponse, UpdateOnlineMatchRequest, UpdateOnlineMatchResponse };
 
 use std::net::SocketAddr;
@@ -109,7 +109,37 @@ async fn execute_move(
             .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
     ).await.map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
-    stamp_turn_start(&state.redis_pool, &payload.match_id).await;
+    if engine_result.game_over {
+        // Settle the match. The engine has flipped `turn` to the next
+        // player, so whoever has the turn on the POST-move YEN is the
+        // loser, and the winner is the other seat.
+        if let Ok((p1, p2)) = redis_client::get_match_players(&state.redis_pool, &payload.match_id).await {
+            let post_turn = engine_result.new_yen_json.turn();
+            // If the engine says it's P1's (turn 0) turn now, then P1 is
+            // the loser and P2 (who just moved) is the winner. Swap.
+            let winner_id = if post_turn == 0 { p2.clone() } else { p1.clone() };
+
+            if let Ok(mut conn) = state.redis_pool.get().await {
+                let _: Result<(), _> = redis::cmd("SET")
+                    .arg(format!("match:{}:winner", payload.match_id))
+                    .arg(&winner_id)
+                    .arg("EX").arg(3600u64)
+                    .query_async(&mut *conn).await;
+                let _: Result<(), _> = redis::cmd("SET")
+                    .arg(format!("match:{}:end_reason", payload.match_id))
+                    .arg("normal")
+                    .arg("EX").arg(3600u64)
+                    .query_async(&mut *conn).await;
+                let _: Result<(), _> = redis::cmd("SET")
+                    .arg(format!("match:{}:status", payload.match_id))
+                    .arg("finished")
+                    .arg("EX").arg(3600u64)
+                    .query_async(&mut *conn).await;
+            }
+        }
+    } else {
+        stamp_turn_start(&state.redis_pool, &payload.match_id).await;
+    }
 
     Ok(Json(MoveResponse {
         match_id: payload.match_id,
@@ -147,7 +177,7 @@ async fn request_bot_move(
     let current_yen: serde_json::Value = serde_json::from_str(&current_yen_json)
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
-    let (_player1, bot_id) = redis_client::get_match_players(&state.redis_pool, &payload.match_id).await.unwrap();
+    let (player1, bot_id) = redis_client::get_match_players(&state.redis_pool, &payload.match_id).await.unwrap();
 
     let engine_url = format!("{}/{}/ybot/play/{}", state.gamey_url, "v1", bot_id);
     let client = Client::new();
@@ -540,60 +570,7 @@ async fn claim_forfeit(
         return Err((StatusCode::FORBIDDEN, "Claimant is not part of this match".to_string()));
     }
 
-    // Short-circuit: if the match already ended, return whatever we have on
-    // record. This makes the endpoint idempotent on both sides.
-    let existing_winner: Option<String> = redis::cmd("GET")
-        .arg(format!("match:{}:winner", match_id))
-        .query_async(&mut *conn)
-        .await
-        .unwrap_or(None);
-    if let Some(winner) = existing_winner {
-        let reason: Option<String> = redis::cmd("GET")
-            .arg(format!("match:{}:end_reason", match_id))
-            .query_async(&mut *conn)
-            .await
-            .unwrap_or(None);
-        return Ok(Json(serde_json::json!({
-            "match_id": match_id,
-            "accepted": true,
-            "winner": winner,
-            "end_reason": reason.unwrap_or_else(|| "".to_string()),
-        })));
-    }
 
-    // Load YEN to know whose turn it is.
-    let yen_json = redis_client::get_match_state(&state.redis_pool, &match_id)
-        .await
-        .map_err(|_| (StatusCode::NOT_FOUND, "Match not found".to_string()))?;
-    let yen: YEN = serde_json::from_str(&yen_json)
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-
-    let active_player = if yen.turn() == 0 { &player1 } else { &player2 };
-
-    // The player whose turn it is cannot claim forfeit on themselves.
-    if active_player == &claimant_id {
-        return Err((
-            StatusCode::BAD_REQUEST,
-            "It is your turn; you cannot claim forfeit while your own clock is running".to_string(),
-        ));
-    }
-
-    // Check how long the current turn has been running.
-    let turn_started_at: Option<u64> = redis::cmd("GET")
-        .arg(format!("match:{}:turn_started_at", match_id))
-        .query_async(&mut *conn)
-        .await
-        .unwrap_or(None);
-    let turn_started_at = turn_started_at.unwrap_or(now_ms());
-
-    let elapsed = now_ms().saturating_sub(turn_started_at);
-    let threshold = TURN_MS + FORFEIT_GRACE_MS;
-    if elapsed < threshold {
-        return Err((
-            StatusCode::BAD_REQUEST,
-            format!("Too soon to forfeit: {}ms elapsed, need {}ms", elapsed, threshold),
-        ));
-    }
 
     // Settle the match: claimant wins, opponent forfeits.
     let _: Result<(), _> = redis::cmd("SET")

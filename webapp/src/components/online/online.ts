@@ -1,11 +1,9 @@
 // src/components/online/online.ts
 //
-// Typed wrapper around the Rust online endpoints. All calls are routed
-// through the Express gateway's /game/* proxy (see users-service.js).
+// Typed wrapper around the Rust online endpoints. All calls go through the
+// Express gateway's /game/* proxy.
 
 const API_URL: string = (import.meta as any).env?.VITE_API_URL ?? "";
-
-/** All game endpoints live under this gateway prefix. */
 const GAME = "/game";
 
 // ---------- Types (mirror the Rust structs in data.rs) ----------
@@ -13,24 +11,24 @@ const GAME = "/game";
 export interface CreateOnlineMatchRequest {
     player1id: string;
     size: number;
-    match_id: string;          // "" → server picks a random/public match
+    match_id: string;
     match_password: string;
 }
 
 export interface CreateOnlineMatchResponse {
     match_id: string;
-    turn_number: number;       // creator = 0
+    turn_number: number;
 }
 
 export interface JoinOnlineMatchRequest {
     player2id: string;
-    match_id: string;          // "" → join any public waiting match
+    match_id: string;
     match_password: string;
 }
 
 export interface JoinOnlineMatchResponse {
     match_id: string;
-    turn_number: number;       // joiner = 1
+    turn_number: number;
 }
 
 export interface UpdateOnlineMatchRequest {
@@ -66,22 +64,49 @@ export interface ExecuteMoveResponse {
 
 export interface MatchStatusResponse {
     match_id: string;
-    status: "waiting" | "active" | string;
+    status: "waiting" | "active" | "finished" | string;
     player1id: string;
     player2id: string;
     ready: boolean;
+    winner?: string | null;
+    end_reason?: string | null;
 }
 
 export interface MatchTurnInfo {
     match_id: string;
-    /** Current turn number as the server sees it (0 or 1). */
     turn: number;
-    /** ms since epoch, server clock, when the current turn started. */
     turn_started_at: number;
-    /** ms since epoch, server clock, at the moment the response was built. */
     now_server: number;
-    /** 10_000 in the default build. */
     turn_duration_ms: number;
+}
+
+export interface ClaimForfeitResponse {
+    match_id: string;
+    accepted: boolean;
+    winner: string;
+    end_reason: string;
+}
+
+export interface Coordinates {
+    x: number;
+    y: number;
+    z: number;
+}
+
+export interface SaveMatchRequest {
+    match_id: string;
+    player1id: string;
+    player2id: string;
+    result: string;
+    time: number;
+    moves: Coordinates[];
+}
+
+export interface UpdateScoreRequest {
+    playerid: string;
+    username: string;
+    is_win: boolean;
+    time: number;
 }
 
 // ---------- Internal helpers ----------
@@ -136,6 +161,19 @@ async function getJson<TRes>(path: string): Promise<TRes> {
     return (await res.json()) as TRes;
 }
 
+async function deleteJson<TRes>(path: string): Promise<TRes> {
+    const res = await fetch(`${API_URL}${path}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+    });
+    if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        throw new ApiError(res.status, text || res.statusText);
+    }
+    return (await res.json()) as TRes;
+}
+
 // ---------- Public API ----------
 
 export function createOnlineMatch(
@@ -164,11 +202,41 @@ export function getMatchTurnInfo(matchId: string): Promise<MatchTurnInfo> {
     return getJson(`${GAME}/matchTurnInfo/${encodeURIComponent(matchId)}`);
 }
 
+/** Cancel a waiting match. Idempotent; swallows 409 (already active). */
+export async function cancelMatch(matchId: string): Promise<void> {
+    try {
+        await deleteJson(`${GAME}/cancelMatch/${encodeURIComponent(matchId)}`);
+    } catch (err) {
+        if (!(err instanceof ApiError) || err.status !== 409) {
+            console.warn("[online] cancelMatch failed:", err);
+        }
+    }
+}
+
+/** Claim the win because the opponent hasn't responded past the threshold. */
+export function claimForfeit(
+    matchId: string,
+    claimantId: string
+): Promise<ClaimForfeitResponse> {
+    return postJson(`${GAME}/claimForfeit/${encodeURIComponent(matchId)}`, {
+        claimant_id: claimantId,
+    });
+}
+
+export function saveMatchToDb(req: SaveMatchRequest): Promise<{ message: string }> {
+    return postJson(`${GAME}/saveMatch`, req);
+}
+
+export function updateScore(req: UpdateScoreRequest): Promise<{ message: string }> {
+    return postJson(`${GAME}/updateScore`, req);
+}
+
 export function isNoMatchesAvailable(err: unknown): boolean {
     if (!(err instanceof ApiError)) return false;
     return /no\s*match/i.test(err.message);
 }
 
+/** Poll /matchStatus until both players are in. */
 export async function waitUntilMatchReady(
     matchId: string,
     intervalMs = 1000,
@@ -186,6 +254,7 @@ export async function waitUntilMatchReady(
     }
 }
 
+/** Long-poll until it is our turn. Backend returns 408 on timeout; we retry. */
 export async function waitForTurn(
     req: UpdateOnlineMatchRequest,
     signal?: AbortSignal
@@ -203,7 +272,6 @@ export async function waitForTurn(
             });
 
             if (res.ok) return (await res.json()) as UpdateOnlineMatchResponse;
-
             if (res.status === 408) continue;
 
             const text = await res.text().catch(() => "");
@@ -216,8 +284,8 @@ export async function waitForTurn(
 }
 
 /**
- * Parse the YEN `layout` string into an ordered list of XYZ coordinates.
- * YEN.layout is rows separated by '/', cells are 'B', 'R', or '.' for empty.
+ * Parse YEN.layout into XYZ coordinates of occupied cells.
+ * YEN.layout is rows separated by '/', cells are 'B', 'R', or '.'.
  */
 export function extractOccupiedFromYen(
     yen: Yen

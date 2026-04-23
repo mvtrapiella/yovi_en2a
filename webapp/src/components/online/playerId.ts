@@ -1,35 +1,57 @@
-// src/utils/playerId.ts
+// src/components/online/playerId.ts
 //
-// Resolves the current player's ID for online matches.
+// Identifier + display helpers for online play.
 //
-// If a real auth system exists it should feed into this module; for now
-// we persist a random UUID in localStorage so the same browser keeps its
-// identity across reloads. Guest matches also use this ID.
+// - Logged-in users → their username (unique per the Auth service).
+// - Guests → a stable per-browser alias "UnregisteredGuest#NNNN" stored in
+//   localStorage so refreshing keeps the same id.
+// - For rendering, guest ids are collapsed to seat-based nicknames
+//   (UnregisteredCapibara for P1, UnregisteredGiraffe for P2).
 
-const STORAGE_KEY = "gamey.playerId";
+const STORAGE_KEY = "gamey.guestAlias";
 
-function randomUuid(): string {
-    // crypto.randomUUID is available in all modern browsers; fall back
-    // to a manual v4 generator just in case.
-    if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-        return crypto.randomUUID();
-    }
-    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
-        const r = (Math.random() * 16) | 0;
-        const v = c === "x" ? r : (r & 0x3) | 0x8;
-        return v.toString(16);
-    });
+const GUEST_FIRST_PLAYER_NAME = "UnregisteredCapibara";
+const GUEST_SECOND_PLAYER_NAME = "UnregisteredGiraffe";
+
+function randomSuffix(): string {
+    return String(Math.floor(1000 + Math.random() * 9000));
 }
 
-export function getPlayerId(): string {
+/** Seat-based nickname for anonymous opponents. */
+export function guestDisplayName(seat: 0 | 1): string {
+    return seat === 0 ? GUEST_FIRST_PLAYER_NAME : GUEST_SECOND_PLAYER_NAME;
+}
+
+function loadOrCreateGuestAlias(): string {
     try {
         const existing = localStorage.getItem(STORAGE_KEY);
         if (existing) return existing;
-        const fresh = randomUuid();
+
+        const fresh = `UnregisteredGuest#${randomSuffix()}`;
         localStorage.setItem(STORAGE_KEY, fresh);
         return fresh;
     } catch {
-        // Private mode / disabled storage: fall back to a per-session id.
-        return randomUuid();
+        return `UnregisteredGuest#${randomSuffix()}`;
     }
+}
+
+/**
+ * Id to send to the backend as player1id / player2id.
+ * Prefer the logged-in username; otherwise return the stored guest alias.
+ */
+export function getPlayerId(loggedUsername?: string | null): string {
+    if (loggedUsername && loggedUsername.trim().length > 0) {
+        return loggedUsername;
+    }
+    return loadOrCreateGuestAlias();
+}
+
+/**
+ * Render-side transform: turn an opponent's id into something UI-friendly.
+ * Collapses any "UnregisteredGuest#..." into the seat-based nickname.
+ */
+export function displayNameFor(playerId: string | undefined | null, seat: 0 | 1): string {
+    if (!playerId) return guestDisplayName(seat);
+    if (playerId.startsWith("UnregisteredGuest#")) return guestDisplayName(seat);
+    return playerId;
 }

@@ -1,40 +1,42 @@
 import "../gameWindow/rightPanel/RightPanel.css";
 import "./RightPanelOnline.css";
-import { useUser } from "../../contexts/UserContext";
 
 type Props = {
-    /** Current active turn as "1" or "2" (same semantics as RightPanel). */
+    /** Current active turn as "1" or "2". */
     turn: 1 | 2;
-    /** Which of the two players is the local user (1 = P1, 2 = P2). */
+    /** Which of the two players is the local user. */
     mySlot: 1 | 2;
     /** Total elapsed game time, formatted "MM:SS". */
     totalTime: string;
     /** Seconds left in the active player's 10 s window, ceiled. */
     turnSecondsLeft: number;
-    /** Same as above but as a 0..1 float so the bar can drain smoothly. */
+    /** 0..1 for the progress bar. */
     turnFraction: number;
+    /** Display name for the local user (respects guest aliases). */
+    myName: string;
+    /** Display name for the opponent (respects guest aliases). */
+    opponentName: string;
 };
 
 export default function RightPanelOnline({
-    turn,
-    mySlot,
-    totalTime,
-    turnSecondsLeft,
-    turnFraction,
-}: Readonly<Props>) {
-    const { user } = useUser();
+                                             turn,
+                                             mySlot,
+                                             totalTime,
+                                             turnSecondsLeft,
+                                             turnFraction,
+                                             myName,
+                                             opponentName,
+                                         }: Readonly<Props>) {
     const isP1Active = turn === 1;
     const isMyTurn = turn === mySlot;
-
-    // Critical ≤3 s: paint the countdown red and pulse it.
     const critical = turnSecondsLeft <= 3;
 
     const Player = ({
-        name,
-        isBlue,
-        isActive,
-        meta,
-    }: {
+                        name,
+                        isBlue,
+                        isActive,
+                        meta,
+                    }: {
         name: string;
         isBlue: boolean;
         isActive: boolean;
@@ -54,9 +56,11 @@ export default function RightPanelOnline({
         </div>
     );
 
+    const p1Name = mySlot === 1 ? myName : opponentName;
+    const p2Name = mySlot === 2 ? myName : opponentName;
+
     return (
         <div className="rightpanel">
-            {/* Turn countdown — the big, attention-grabbing one. */}
             <section
                 className={`rightpanel-card turn-countdown ${
                     critical ? "is-critical" : ""
@@ -77,7 +81,6 @@ export default function RightPanelOnline({
                 </div>
             </section>
 
-            {/* Total elapsed game time (kept from the offline panel). */}
             <section className="rightpanel-card">
                 <h4 className="rightpanel-title">Total time</h4>
                 <div className="rightpanel-time">{totalTime}</div>
@@ -86,18 +89,16 @@ export default function RightPanelOnline({
             <section className="rightpanel-card">
                 <h4 className="rightpanel-title">Players</h4>
                 <Player
-                    name={
-                        (mySlot === 1 ? (user?.username ?? "You") : "Opponent")
-                    }
+                    name={p1Name}
                     isBlue
                     isActive={isP1Active}
-                    meta={mySlot === 1 ? "You" : "Human"}
+                    meta={mySlot === 1 ? "You" : "Opponent"}
                 />
                 <Player
-                    name={mySlot === 2 ? (user?.username ?? "You") : "Opponent"}
+                    name={p2Name}
                     isBlue={false}
                     isActive={!isP1Active}
-                    meta={mySlot === 2 ? "You" : "Human"}
+                    meta={mySlot === 2 ? "You" : "Opponent"}
                 />
             </section>
         </div>

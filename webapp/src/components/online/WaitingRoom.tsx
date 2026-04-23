@@ -1,14 +1,21 @@
 // src/components/online/WaitingRoom.tsx
 //
 // Flow:
-//   1. "Waiting for opponent…"  (creator polls /matchStatus until ready)
-//   2. "Connected!" flash (~1.2 s)
-//   3. "You are Player N – your turn / their turn" announcement (~1.5 s)
+//   1. "Waiting for opponent…" — creator polls /matchStatus until ready
+//      Joiners skip straight to "Connected!" since the join endpoint only
+//      succeeds when P1 is there.
+//   2. "Connected!" flash (~1.2s)
+//   3. "You are Player N — your turn / their turn" (~1.5s)
 //   4. navigate to the online game screen
+//
+// Cancel:
+//   - Aborts the polling.
+//   - Calls DELETE /cancelMatch so the match vanishes from Redis and the
+//     random pool. Idempotent on the server side, so worst case is a no-op.
 
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
-import { waitUntilMatchReady } from "./online.ts";
+import { cancelMatch, waitUntilMatchReady } from "./online";
 
 type Phase = "waiting" | "connected" | "announce";
 
@@ -29,20 +36,16 @@ const WaitingRoom: React.FC = () => {
     const state = location.state as LocationState | null;
 
     useEffect(() => {
-        if (!state) {
-            navigate("/", { replace: true });
-        }
+        if (!state) navigate("/", { replace: true });
     }, [state, navigate]);
 
-    // Joiners know the match is ready already (join endpoint only succeeded
-    // because P1 was there). Creators must actually wait.
     const [phase, setPhase] = useState<Phase>(
         state?.role === "join" ? "connected" : "waiting"
     );
 
     const abortRef = useRef<AbortController | null>(null);
 
-    // Phase 1 → wait for opponent (only creators poll).
+    // Phase 1 → wait for opponent (creator only).
     useEffect(() => {
         if (!state) return;
         if (state.role !== "create") return;
@@ -64,14 +67,14 @@ const WaitingRoom: React.FC = () => {
         return () => ctrl.abort();
     }, [matchId, navigate, state]);
 
-    // Phase 2 → "Connected!" flash for ~1.2 s.
+    // Phase 2 → brief "Connected!"
     useEffect(() => {
         if (phase !== "connected") return;
         const t = setTimeout(() => setPhase("announce"), 1200);
         return () => clearTimeout(t);
     }, [phase]);
 
-    // Phase 3 → "You are Player N" for ~1.5 s, then enter the game.
+    // Phase 3 → announcement then enter the game.
     useEffect(() => {
         if (phase !== "announce") return;
         if (!state) return;
@@ -91,8 +94,13 @@ const WaitingRoom: React.FC = () => {
         return () => clearTimeout(t);
     }, [phase, matchId, navigate, state]);
 
-    const handleCancel = () => {
+    const handleCancel = async () => {
         abortRef.current?.abort();
+        if (matchId) {
+            // Fire-and-forget — cancellation should never block the UI.
+            // Idempotent on the server side.
+            cancelMatch(matchId).catch(() => undefined);
+        }
         navigate("/", { replace: true });
     };
 
@@ -158,26 +166,19 @@ const styles: Record<string, React.CSSProperties> = {
         zIndex: 1000,
     },
     panel: {
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: "1.25rem",
-        padding: "2rem 2.5rem",
+        display: "flex", flexDirection: "column",
+        alignItems: "center", justifyContent: "center",
+        gap: "1.25rem", padding: "2rem 2.5rem",
         border: "1px solid rgba(22, 163, 74, 0.2)",
-        borderRadius: "1.25rem",
-        background: "rgba(255, 255, 255, 0.03)",
-        minWidth: "18rem",
-        maxWidth: "28rem",
-        textAlign: "center",
+        borderRadius: "1.25rem", background: "rgba(255, 255, 255, 0.03)",
+        minWidth: "18rem", maxWidth: "28rem", textAlign: "center",
     },
     title: { fontSize: "1.4rem", fontWeight: 700, margin: 0, letterSpacing: "0.05rem" },
     spinner: {
         width: "3rem", height: "3rem",
         border: "3px solid rgba(255, 255, 255, 0.08)",
         borderTopColor: "#4ADE80",
-        borderRadius: "50%",
-        animation: "gm-spin 1s linear infinite",
+        borderRadius: "50%", animation: "gm-spin 1s linear infinite",
     },
     matchIdBlock: {
         display: "flex", flexDirection: "column", alignItems: "center",

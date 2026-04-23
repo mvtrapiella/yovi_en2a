@@ -38,10 +38,6 @@ export interface UpdateOnlineMatchRequest {
     turn_number: number;
 }
 
-/**
- * YEN board status. The exact internal shape is owned by the Rust `data::YEN`
- * struct — we keep it loose here and read it defensively when applying moves.
- */
 export type Yen = {
     size?: number;
     turn?: number;
@@ -73,8 +69,19 @@ export interface MatchStatusResponse {
     status: "waiting" | "active" | string;
     player1id: string;
     player2id: string;
-    /** True when both players are assigned. */
     ready: boolean;
+}
+
+export interface MatchTurnInfo {
+    match_id: string;
+    /** Current turn number as the server sees it (0 or 1). */
+    turn: number;
+    /** ms since epoch, server clock, when the current turn started. */
+    turn_started_at: number;
+    /** ms since epoch, server clock, at the moment the response was built. */
+    now_server: number;
+    /** 10_000 in the default build. */
+    turn_duration_ms: number;
 }
 
 // ---------- Internal helpers ----------
@@ -82,6 +89,7 @@ export interface MatchStatusResponse {
 class ApiError extends Error {
     // 1. Explicitly declare the property
     status: number;
+
     constructor(status: number, message: string) {
         super(message);
         // 2. Manually assign the value
@@ -152,19 +160,15 @@ export function getMatchStatus(matchId: string): Promise<MatchStatusResponse> {
     return getJson(`${GAME}/matchStatus/${encodeURIComponent(matchId)}`);
 }
 
-/**
- * True when the error from the backend means "there are no public matches
- * waiting right now". We detect it by the Rust MatchError Display text.
- */
+export function getMatchTurnInfo(matchId: string): Promise<MatchTurnInfo> {
+    return getJson(`${GAME}/matchTurnInfo/${encodeURIComponent(matchId)}`);
+}
+
 export function isNoMatchesAvailable(err: unknown): boolean {
     if (!(err instanceof ApiError)) return false;
     return /no\s*match/i.test(err.message);
 }
 
-/**
- * Poll /matchStatus until the match is ready (both players joined).
- * Polls every `intervalMs` ms. Resolves with the final MatchStatusResponse.
- */
 export async function waitUntilMatchReady(
     matchId: string,
     intervalMs = 1000,
@@ -176,17 +180,12 @@ export async function waitUntilMatchReady(
             const status = await getMatchStatus(matchId);
             if (status.ready) return status;
         } catch (err) {
-            // Transient network/404 right after creation — keep trying briefly.
             if ((err as any)?.name === "AbortError") throw err;
         }
         await new Promise((r) => setTimeout(r, intervalMs));
     }
 }
 
-/**
- * Long-poll the server until it is our turn.
- * Backend blocks ~20 s per call and returns 408 on timeout; we silently retry.
- */
 export async function waitForTurn(
     req: UpdateOnlineMatchRequest,
     signal?: AbortSignal
@@ -218,14 +217,7 @@ export async function waitForTurn(
 
 /**
  * Parse the YEN `layout` string into an ordered list of XYZ coordinates.
- *
- * YEN.layout is a compact board representation: rows separated by '/', cells
- * are either a player symbol (e.g. 'B', 'R') or '.' for empty. A triangular
- * board of size N has row r containing r+1 cells (r = 0..N-1).
- *
- * Because the layout doesn't encode move order, we return cells in row-major
- * order (row 0, row 1, …). The caller merges this with its local history to
- * discover only the NEW occupied cells — which is fine for append-only play.
+ * YEN.layout is rows separated by '/', cells are 'B', 'R', or '.' for empty.
  */
 export function extractOccupiedFromYen(
     yen: Yen
@@ -240,7 +232,6 @@ export function extractOccupiedFromYen(
         for (let col = 0; col < r.length; col++) {
             const ch = r[col];
             if (ch === ".") continue;
-            // Mirror the TS toXYZ used in GameWindow.
             const x = size - 1 - row;
             const y = col;
             const z = row - col;

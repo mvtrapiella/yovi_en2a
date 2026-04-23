@@ -1,10 +1,11 @@
 // src/components/online/GameWindowOnline.tsx
 //
-// Online 1-vs-1 game view. Reuses the offline GameWindow layout/CSS.
+// Online 1-vs-1 game view.
 //   - match is already created by the WaitingRoom (matchId arrives in state)
 //   - we know our slot via turnNumber (0 = P1, 1 = P2)
 //   - we long-poll /requestOnlineGameUpdate to learn the opponent's move
-//   - each player has 10 s per turn; timeout → auto-play a random empty cell
+//   - per-turn countdown is anchored to the server clock via useServerCountdown
+//   - if OUR countdown hits 0 we auto-play a random empty cell (client-side only)
 
 import "../gameWindow/GameWindow.css";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -16,17 +17,15 @@ import RightPanelOnline from "./RightPanelOnline";
 import { Game, toXYZ, fromXYZ } from "../gameWindow/Game";
 import type { Move } from "../gameWindow/GameWindow";
 import { useTimer } from "../gameWindow/rightPanel/Timer";
-import { useCountdown } from "./useCountdown";
+import { useServerCountdown } from "./UseServerCountdown.ts";
 import {
     executeMove,
     extractOccupiedFromYen,
     waitForTurn,
     type Yen,
-} from "./online.ts";
+} from "./online";
 import modalStyles from "../gameWindow/GameModal.module.css";
 import { useUser } from "../../contexts/UserContext";
-
-const TURN_SECONDS = 10;
 
 type OnlineNavState = {
     matchId?: string;
@@ -50,7 +49,6 @@ const GameWindowOnline = () => {
         }
     }, [state.matchId, state.turnNumber, navigate]);
 
-    /** Our seat: 0 = P1 (first symbol in YEN.players), 1 = P2. */
     const mySeat: 0 | 1 = (state.turnNumber === 1 ? 1 : 0);
     const mySlot: 1 | 2 = mySeat === 0 ? 1 : 2;
 
@@ -87,35 +85,22 @@ const GameWindowOnline = () => {
         return g;
     };
 
-    const currentTurn: 0 | 1 = game.turn;
-    const isMyTurn = !game.gameOver && currentTurn === mySeat;
+    const isMyTurn = !game.gameOver && game.turn === mySeat;
 
     const handleGameOver = useCallback((iWon: boolean) => {
         setModalMessage(iWon ? "You won!" : "You lost.");
     }, []);
 
-    /**
-     * Reconcile the server board (YEN.layout) with our local move history.
-     * Since the layout only tells us which cells are occupied (not the order),
-     * we only reliably discover *new* cells — which is fine because online
-     * play is append-only.
-     */
     const applyServerUpdate = useCallback((yen: Yen) => {
         const occupied = extractOccupiedFromYen(yen);
-        if (occupied.length === 0) return;
-
         const local = gameRef.current;
         if (occupied.length <= local.moves.length) return;
 
-        // Build a set of cells we already know about.
         const known = new Set(local.moves.map((m) => `${m.row},${m.col}`));
-
-        // Everything the server has that we don't know about yet.
         const fresh = occupied.filter((c) => {
             const { row, col } = fromXYZ(c.x, c.y, c.z, local.size);
             return !known.has(`${row},${col}`);
         });
-
         if (fresh.length === 0) return;
 
         const updated = cloneGame(local);
@@ -123,15 +108,13 @@ const GameWindowOnline = () => {
             const { row, col } = fromXYZ(cell.x, cell.y, cell.z, updated.size);
             updated.addMove(row, col);
         }
-
-        // Reconcile whose turn it is according to the server.
         if (typeof yen.turn === "number") {
             updated.turn = (yen.turn === 0 ? 0 : 1);
         }
         setGame(updated);
     }, []);
 
-    // Long-poll for opponent moves when it's their turn.
+    // Long-poll for opponent moves.
     useEffect(() => {
         if (!game.matchId || game.gameOver) return;
         if (isMyTurn) return;
@@ -154,7 +137,7 @@ const GameWindowOnline = () => {
         return () => ctrl.abort();
     }, [isMyTurn, game.matchId, game.gameOver, mySeat, applyServerUpdate]);
 
-    // Send a move.
+    // Sending a move.
     const handlePlace = useCallback(
         async (row: number, col: number) => {
             const g = gameRef.current;
@@ -188,7 +171,7 @@ const GameWindowOnline = () => {
         [mySeat, handleGameOver]
     );
 
-    // 10 s per-turn countdown (Option B: auto-play random on timeout).
+    // ---- Server-synced countdown ----
     const pickRandomEmpty = useCallback((): { row: number; col: number } | null => {
         const g = gameRef.current;
         const empty: Array<{ row: number; col: number }> = [];
@@ -211,16 +194,16 @@ const GameWindowOnline = () => {
         void handlePlace(cell.row, cell.col);
     }, [mySeat, handlePlace, pickRandomEmpty]);
 
-    const countdownKey = `${game.matchId}:${game.moves.length}`;
+    // Resync on every turn flip. `game.moves.length` is a monotonic counter
+    // that changes exactly once per move, whether by us or the opponent.
+    const turnEpoch = `${game.matchId}:${game.moves.length}`;
 
-    const { remaining, secondsLeft } = useCountdown(
-        TURN_SECONDS,
-        !game.gameOver,
-        countdownKey,
-        onTurnExpire
-    );
-
-    const turnFraction = remaining / TURN_SECONDS;
+    const { remaining, secondsLeft, fraction } = useServerCountdown({
+        matchId: game.matchId ?? null,
+        resetKey: turnEpoch,
+        isRunning: !game.gameOver,
+        onExpire: onTurnExpire,
+    });
 
     const boardBlocked = game.gameOver || !isMyTurn || sending;
 
@@ -250,7 +233,7 @@ const GameWindowOnline = () => {
                         mySlot={mySlot}
                         totalTime={formattedTime}
                         turnSecondsLeft={secondsLeft}
-                        turnFraction={turnFraction}
+                        turnFraction={fraction}
                     />
                 </div>
             </div>
@@ -275,6 +258,9 @@ const GameWindowOnline = () => {
                     </div>
                 </div>
             )}
+
+            {/* Consume `remaining` so ESLint doesn't complain; harmless otherwise. */}
+            <span style={{ display: "none" }}>{remaining}</span>
         </div>
     );
 };

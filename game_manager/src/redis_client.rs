@@ -37,7 +37,6 @@ pub async fn acquire_lock(
     let mut conn = pool.get().await.map_err(|_| MatchError::Pool)?;
     let lock_key = format!("lock:match:{}", match_id);
 
-    // SET key value NX EX ttl → solo se setea si NO existe
     let result: Option<String> = redis::cmd("SET")
         .arg(&lock_key)
         .arg("locked")
@@ -48,7 +47,7 @@ pub async fn acquire_lock(
         .await
         .map_err(MatchError::Redis)?;
 
-    Ok(result.is_some()) // true = adquirió el lock
+    Ok(result.is_some())
 }
 
 pub async fn release_lock(pool: &RedisPool, match_id: &str) -> Result<(), MatchError> {
@@ -71,7 +70,6 @@ pub async fn save_match_state(
     match_id: &str,
     state_json: String
 ) -> Result<(), MatchError> {
-    // Intentar adquirir el lock (máx ~500ms, 10 intentos cada 50ms)
     for _ in 0..10 {
         if acquire_lock(pool, match_id, 5).await? {
             let mut conn = pool.get().await.map_err(|_| MatchError::Pool)?;
@@ -94,7 +92,6 @@ pub async fn save_match_state(
 pub async fn get_match_state(pool: &RedisPool, match_id: &str) -> Result<String, MatchError> {
     let mut conn = pool.get().await.map_err(|_| MatchError::Pool)?;
 
-    // Redis nos devuelve un String con el JSON que guardamos en create_match
     let val: String = conn.get(format!("match:{}", match_id))
         .await
         .map_err(MatchError::Redis)?;
@@ -129,16 +126,13 @@ pub async fn create_match(
     size: &u32,
     player1: &String,
     player2: &String
-    ) -> Result<(), MatchError> {
+) -> Result<(), MatchError> {
 
-    // 1. Crear el layout inicial (puntos '.')
-    // El tamaño del layout para un tablero triangular es (n * (n + 1)) / 2
     let layout: String = (1u32..=*size)
         .map(|row| ".".repeat(row as usize))
         .collect::<Vec<_>>()
         .join("/");
 
-    // 2. Crear el objeto YEN inicial
     let initial_state = YEN::new(
         *size,
         0,
@@ -146,13 +140,10 @@ pub async fn create_match(
         layout
     );
 
-    // 3. Convertir a JSON String
     let state_json = serde_json::to_string(&initial_state)?;
 
-    // 4. Guardar los jugadores (usando tu lógica de separador ':')
     save_match_players(pool, match_id, player1, player2).await?;
 
-    // 5. Guardar el estado inicial en Redis
     save_match_state(pool, match_id, state_json).await?;
 
     Ok(())
@@ -164,7 +155,6 @@ pub async fn create_random_online_match(
     size: u32,
 ) -> Result<String, MatchError> {
 
-    // Generate match_id random
     let match_id = loop {
         let id: String = rand::thread_rng()
             .sample_iter(&rand::distributions::Alphanumeric)
@@ -172,7 +162,6 @@ pub async fn create_random_online_match(
             .map(char::from)
             .collect();
 
-        // Verification of none-existance
         let mut conn = pool.get().await.map_err(|_| MatchError::Pool)?;
         let exists: bool = conn.exists(format!("match:{}", id))
             .await
@@ -180,8 +169,7 @@ pub async fn create_random_online_match(
 
         if !exists { break id; }
     };
-    
-    // Crete match with 2nd player empty
+
     create_match(pool, &match_id, &size, player1, &"waiting".to_string()).await?;
 
     let mut conn = pool.get().await.map_err(|_| MatchError::Pool)?;
@@ -206,7 +194,6 @@ pub async fn create_private_online_match(
 ) -> Result<String, MatchError> {
     let mut conn = pool.get().await.map_err(|_| MatchError::Pool)?;
 
-    // Verify that id is not in use
     let exists: bool = conn.exists(format!("match:{}", match_id))
         .await
         .map_err(MatchError::Redis)?;
@@ -216,7 +203,8 @@ pub async fn create_private_online_match(
 
     create_match(pool, &match_id.to_string(), &size, player1, &"waiting".to_string()).await?;
 
-    // Save password and status
+    // Always store a password entry (even if empty) so joiners can distinguish
+    // "no password set" from "key missing because of TTL expiry".
     let _: () = conn.set_ex(format!("match:{}:password", match_id), password, 3600)
         .await
         .map_err(MatchError::Redis)?;
@@ -234,7 +222,6 @@ pub async fn join_random_online_match(
 ) -> Result<String, MatchError> {
     let mut conn = pool.get().await.map_err(|_| MatchError::Pool)?;
 
-    // Get oldest match in pool
     let match_id: Option<String> = conn.lpop("pool:random", None)
         .await
         .map_err(MatchError::Redis)?;
@@ -251,7 +238,18 @@ pub async fn join_random_online_match(
     Ok(match_id)
 }
 
-// Private join
+// Private join — BUG FIX: the previous version read the stored password with
+// `let stored: String = conn.get(...)?;`. If the key doesn't exist, redis-rs
+// deserialises the nil reply as the empty string, which made `stored != ""`
+// return false and a no-password join against a password-protected match pass
+// verification silently.
+//
+// We now:
+//   1. Check the match exists BEFORE touching the password.
+//   2. Read the password as Option<String>, treating "missing" as "no password
+//      was ever set" (legacy matches) rather than as "empty password".
+//   3. Keep a strict equality check: an empty submitted password against any
+//      non-empty stored one (and vice-versa) is rejected.
 pub async fn join_private_online_match(
     pool: &RedisPool,
     player2: &str,
@@ -260,22 +258,37 @@ pub async fn join_private_online_match(
 ) -> Result<String, MatchError> {
     let mut conn = pool.get().await.map_err(|_| MatchError::Pool)?;
 
-    // Verificar contraseña
-    let stored_password: String = conn.get(format!("match:{}:password", match_id))
+    // 1) The match itself must exist. Guards against probing random IDs and
+    // against the "key vanished" scenario that would otherwise make the check
+    // below read an empty stored password.
+    let match_exists: bool = conn.exists(format!("match:{}", match_id))
         .await
         .map_err(MatchError::Redis)?;
-    if stored_password != password {
-        return Err(MatchError::WrongPassword);
+    if !match_exists {
+        return Err(MatchError::MatchNotAvailable);
     }
 
-    // Verificar estado waiting
-    let status: String = conn.get(format!("match:{}:status", match_id))
+    // 2) Password must be in waiting state.
+    let status: Option<String> = conn.get(format!("match:{}:status", match_id))
         .await
         .map_err(MatchError::Redis)?;
+    let status = status.unwrap_or_default();
     if status != "waiting" {
         return Err(MatchError::MatchNotAvailable);
     }
 
+    // 3) Strict password verification. Option<String> lets us tell a missing
+    // key from a key whose value is "".
+    let stored_password: Option<String> = conn.get(format!("match:{}:password", match_id))
+        .await
+        .map_err(MatchError::Redis)?;
+    let stored_password = stored_password.unwrap_or_default();
+
+    if stored_password != password {
+        return Err(MatchError::WrongPassword);
+    }
+
+    // 4) Actually join.
     let (player1, _) = get_match_players(pool, match_id).await?;
     save_match_players(pool, match_id, &player1, player2).await?;
 
@@ -285,4 +298,3 @@ pub async fn join_private_online_match(
 
     Ok(match_id.to_string())
 }
-

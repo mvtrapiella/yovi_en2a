@@ -4,6 +4,7 @@ use crate::data::{EngineMoveRequest, EngineMoveResponse, EngineResponse, LocalRa
 
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::net::TcpListener;
 use uuid::Uuid;
 use axum::extract::{FromRef, Path};
@@ -12,10 +13,16 @@ use reqwest::Client;
 
 use axum::{
     extract::State,
-    routing::{post, get},
+    routing::{post, get, delete},
     Json, Router,
 };
 use axum::http::StatusCode;
+
+/// How long after the 10s turn clock a player must be silent before the
+/// opponent can claim the win by forfeit. Total wall-clock limit before a
+/// forfeit is eligible is TURN_MS + FORFEIT_GRACE_MS.
+const TURN_MS: u64 = 10_000;
+const FORFEIT_GRACE_MS: u64 = 20_000;
 
 pub fn get_gamey_url() -> String {
     let host = std::env::var("GAMEY").unwrap_or_else(|_| "localhost".to_string());
@@ -28,10 +35,29 @@ pub struct AppState {
     pub gamey_url: String,
 }
 
+fn now_ms() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0)
+}
+
+async fn stamp_turn_start(pool: &redis_client::RedisPool, match_id: &str) {
+    if let Ok(mut conn) = pool.get().await {
+        let _: Result<(), _> = redis::cmd("SET")
+            .arg(format!("match:{}:turn_started_at", match_id))
+            .arg(now_ms())
+            .arg("EX")
+            .arg(3600u64)
+            .query_async(&mut *conn)
+            .await;
+    }
+}
+
 async fn create_match(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<NewMatchRequest>
-    ) -> Json<NewMatchResponse> {
+) -> Json<NewMatchResponse> {
     let new_id = Uuid::new_v4().to_string();
     let _ = redis_client::create_match(&state.redis_pool, &new_id, &payload.size, &payload.player1, &payload.player2).await;
     Json(NewMatchResponse { match_id: new_id })
@@ -40,15 +66,12 @@ async fn create_match(
 async fn execute_move(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<MoveRequest>,
-    ) -> Result<Json<MoveResponse>, (StatusCode, String)> {
+) -> Result<Json<MoveResponse>, (StatusCode, String)> {
 
-    // 1. Recoger el estado actual de Redis (el string JSON)
     let current_yen_json = redis_client::get_match_state(&state.redis_pool, &payload.match_id)
         .await
         .map_err(|_| (StatusCode::NOT_FOUND, "Match not found".to_string()))?;
 
-    // 2. Enviar al Engine (Contenedor en puerto 4000)
-    // Preparamos el cuerpo que el microservicio del Engine espera
     let engine_url = format!("{}/engine/move", state.gamey_url);
     let client = Client::new();
 
@@ -86,7 +109,8 @@ async fn execute_move(
             .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
     ).await.map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
-    // 4. Responder al Frontend
+    stamp_turn_start(&state.redis_pool, &payload.match_id).await;
+
     Ok(Json(MoveResponse {
         match_id: payload.match_id,
         game_over: engine_result.game_over,
@@ -97,7 +121,7 @@ async fn execute_move(
 async fn request_bot_move(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<EngineMoveRequest>
-    ) -> Result<Json<EngineMoveResponse>, (StatusCode, String)> {
+) -> Result<Json<EngineMoveResponse>, (StatusCode, String)> {
 
     for _ in 0..20 {
         let lock_key = format!("lock:match:{}", payload.match_id);
@@ -125,8 +149,6 @@ async fn request_bot_move(
 
     let (player1, bot_id) = redis_client::get_match_players(&state.redis_pool, &payload.match_id).await.unwrap();
 
-    // 2. Enviar al Engine (Contenedor en puerto 4000)
-    // Preparamos el cuerpo que el microservicio del Engine espera
     let engine_url = format!("{}/{}/ybot/play/{}", state.gamey_url, "v1", bot_id);
     let client = Client::new();
 
@@ -192,21 +214,10 @@ async fn dump_redis(
 async fn get_local_rankings(
     Json(payload): Json<LocalRankingsRequest>
 ) -> Json<LocalRankingsResponse> {
-    
-    // Usamos 'match' para evaluar el Result de forma explícita y segura
     let matches = match crate::firebase::get_user_matches(&payload.user_id).await {
-        
-        // CASO 1: La base de datos responde correctamente y los tipos coinciden
-        Ok(partidas_encontradas) => {
-            partidas_encontradas
-        },
-        
-        // CASO 2: Falla la conexión, no existe el documento, o los tipos del struct no coinciden
+        Ok(partidas_encontradas) => partidas_encontradas,
         Err(error) => {
-            // Imprimimos el error real en los logs de Docker para poder solucionarlo
             eprintln!("🚨 ERROR LEYENDO FIRESTORE (Usuario: {}): {:?}", payload.user_id, error);
-            
-            // Devolvemos un vector vacío para que la app (el frontend) no crashee
             vec![]
         }
     };
@@ -215,10 +226,9 @@ async fn get_local_rankings(
 }
 
 async fn get_best_times() -> Json<RankingTimeResponse> {
-
     let scores = crate::firebase::get_ranking_time()
         .await
-        .unwrap_or_else(|_| vec![]); 
+        .unwrap_or_else(|_| vec![]);
 
     Json(RankingTimeResponse { rankings: scores })
 }
@@ -227,7 +237,7 @@ async fn update_user_score(
     State(_state): State<Arc<AppState>>,
     Json(payload): Json<UpdateScoreRequest>
 ) -> Result<Json<UpdateScoreResponse>, (StatusCode, String)> {
-    
+
     crate::firebase::update_score(
         &payload.playerid,
         &payload.username,
@@ -238,7 +248,7 @@ async fn update_user_score(
         (StatusCode::INTERNAL_SERVER_ERROR, "Error updating data base".to_string())
     })?;
 
-    Ok(Json(UpdateScoreResponse { 
+    Ok(Json(UpdateScoreResponse {
         message: "Score updated correctly".to_string()
     }))
 }
@@ -247,17 +257,13 @@ async fn save_match(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<SaveMatchRequest>
 ) -> Result<Json<SaveMatchResponse>, (StatusCode, String)> {
-    
-    // 1. Obtenemos el estado final del tablero desde Redis usando el match_id
     let current_yen_json = redis_client::get_match_state(&state.redis_pool, &payload.match_id)
         .await
         .map_err(|_| (StatusCode::NOT_FOUND, "Match not found in Redis".to_string()))?;
 
-    // 2. Lo convertimos al struct YEN
     let board_status: YEN = serde_json::from_str(&current_yen_json)
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Error reading YEN: {}", e)))?;
 
-    // 3. Construimos tu struct Match exacto
     let created_at = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
@@ -272,7 +278,6 @@ async fn save_match(
         created_at,
     };
 
-    // 4. Lo guardamos en Firebase
     crate::firebase::insert_match_by_id(&payload.match_id, match_data)
         .await
         .map_err(|e| {
@@ -280,13 +285,11 @@ async fn save_match(
             (StatusCode::INTERNAL_SERVER_ERROR, "Error saving the match in Firebase".to_string())
         })?;
 
-    // 5. Devolvemos éxito al frontend
-    Ok(Json(SaveMatchResponse { 
+    Ok(Json(SaveMatchResponse {
         message: "Match saved correctly".to_string()
     }))
 }
 
-// Online matches
 async fn create_online_match(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<CreateOnlineMatchRequest>
@@ -316,6 +319,19 @@ async fn join_online_match(
             .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
     };
 
+    // P2 is the one who just joined, so the "start now" moment is here plus
+    // a 3s grace window so both clients have time to navigate in.
+    if let Ok(mut conn) = state.redis_pool.get().await {
+        let grace_start = now_ms() + 3_000;
+        let _: Result<(), _> = redis::cmd("SET")
+            .arg(format!("match:{}:turn_started_at", match_id))
+            .arg(grace_start)
+            .arg("EX")
+            .arg(3600u64)
+            .query_async(&mut *conn)
+            .await;
+    }
+
     Ok(Json(JoinOnlineMatchResponse { match_id, turn_number: 1 }))
 }
 
@@ -325,7 +341,6 @@ async fn request_online_update(
     Json(payload): Json<UpdateOnlineMatchRequest>
 ) -> Result<Json<UpdateOnlineMatchResponse>, (StatusCode, String)> {
 
-    // We try for ~20 seconds
     for _ in 0..40 {
         let yen_json = redis_client::get_match_state(&state.redis_pool, &payload.match_id)
             .await
@@ -334,7 +349,6 @@ async fn request_online_update(
         let yen: YEN = serde_json::from_str(&yen_json)
             .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
-        // If turn matches current, we return the board
         if yen.turn() == payload.turn_number {
             return Ok(Json(UpdateOnlineMatchResponse { match_id: payload.match_id.clone(), board_status: yen }));
         }
@@ -345,9 +359,6 @@ async fn request_online_update(
     Err((StatusCode::REQUEST_TIMEOUT, "Timeout waiting for your turn".to_string()))
 }
 
-// Read-only endpoint: tells the WaitingRoom whether both players are in.
-// `match:{id}:status`  is "waiting" until P2 joins, then "active".
-// `match:{id}:players` is "p1:p2" where p2 == "waiting" until someone joins.
 async fn match_status(
     State(state): State<Arc<AppState>>,
     Path(match_id): Path<String>,
@@ -379,6 +390,20 @@ async fn match_status(
         None => ("".to_string(), "".to_string()),
     };
 
+    // Winner key is only set when the match has been settled (normal finish
+    // OR forfeit). Absent otherwise.
+    let winner: Option<String> = redis::cmd("GET")
+        .arg(format!("match:{}:winner", match_id))
+        .query_async(&mut *conn)
+        .await
+        .unwrap_or(None);
+
+    let reason: Option<String> = redis::cmd("GET")
+        .arg(format!("match:{}:end_reason", match_id))
+        .query_async(&mut *conn)
+        .await
+        .unwrap_or(None);
+
     let ready = status == "active" && !player2.is_empty() && player2 != "waiting";
 
     Ok(Json(serde_json::json!({
@@ -387,6 +412,217 @@ async fn match_status(
         "player1id": player1,
         "player2id": player2,
         "ready": ready,
+        "winner": winner,
+        "end_reason": reason,
+    })))
+}
+
+async fn match_turn_info(
+    State(state): State<Arc<AppState>>,
+    Path(match_id): Path<String>,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    let yen_json = redis_client::get_match_state(&state.redis_pool, &match_id)
+        .await
+        .map_err(|_| (StatusCode::NOT_FOUND, "Match not found".to_string()))?;
+
+    let yen: YEN = serde_json::from_str(&yen_json)
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+    let mut conn = state.redis_pool.get().await
+        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Pool error".to_string()))?;
+
+    let turn_started_at: Option<u64> = redis::cmd("GET")
+        .arg(format!("match:{}:turn_started_at", match_id))
+        .query_async(&mut *conn)
+        .await
+        .unwrap_or(None);
+
+    let now = now_ms();
+    let turn_started_at = turn_started_at.unwrap_or(now);
+
+    Ok(Json(serde_json::json!({
+        "match_id": match_id,
+        "turn": yen.turn(),
+        "turn_started_at": turn_started_at,
+        "now_server": now,
+        "turn_duration_ms": TURN_MS,
+    })))
+}
+
+/// Remove every key associated with a waiting match so it vanishes from
+/// Redis and the matchmaking pool. Idempotent: works on missing matches.
+/// Rejects active matches to avoid nuking someone else's game silently.
+async fn cancel_match(
+    State(state): State<Arc<AppState>>,
+    Path(match_id): Path<String>,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    let mut conn = state.redis_pool.get().await
+        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Pool error".to_string()))?;
+
+    let status: Option<String> = redis::cmd("GET")
+        .arg(format!("match:{}:status", match_id))
+        .query_async(&mut *conn)
+        .await
+        .unwrap_or(None);
+
+    if let Some(s) = status.as_deref() {
+        if s == "active" {
+            return Err((
+                StatusCode::CONFLICT,
+                "Match is already active, cannot be cancelled".to_string(),
+            ));
+        }
+    }
+
+    let keys = [
+        format!("match:{}", match_id),
+        format!("match:{}:players", match_id),
+        format!("match:{}:status", match_id),
+        format!("match:{}:password", match_id),
+        format!("match:{}:turn_started_at", match_id),
+        format!("match:{}:winner", match_id),
+        format!("match:{}:end_reason", match_id),
+        format!("lock:match:{}", match_id),
+    ];
+
+    for k in keys {
+        let _: Result<(), _> = redis::cmd("DEL")
+            .arg(k)
+            .query_async(&mut *conn)
+            .await;
+    }
+
+    let _: Result<(), _> = redis::cmd("LREM")
+        .arg("pool:random")
+        .arg(0i64)
+        .arg(&match_id)
+        .query_async(&mut *conn)
+        .await;
+
+    Ok(Json(serde_json::json!({
+        "match_id": match_id,
+        "cancelled": true,
+    })))
+}
+
+/// Server-side forfeit gate: the caller asks "my opponent has been silent
+/// for too long, can I claim the win?" and we verify against the wall clock.
+///
+/// The request body is `{ "match_id": "...", "claimant_id": "<username>" }`.
+/// `claimant_id` must match one of the two players, and must NOT be the one
+/// whose turn it currently is — the player with the clock running can't
+/// claim a forfeit on themselves.
+async fn claim_forfeit(
+    State(state): State<Arc<AppState>>,
+    Path(match_id): Path<String>,
+    Json(payload): Json<serde_json::Value>,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    let claimant_id = payload.get("claimant_id")
+        .and_then(|v| v.as_str())
+        .ok_or((StatusCode::BAD_REQUEST, "claimant_id is required".to_string()))?
+        .to_string();
+
+    let mut conn = state.redis_pool.get().await
+        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Pool error".to_string()))?;
+
+    // Load players and make sure the claimant is one of them.
+    let players_raw: Option<String> = redis::cmd("GET")
+        .arg(format!("match:{}:players", match_id))
+        .query_async(&mut *conn)
+        .await
+        .unwrap_or(None);
+    let players_raw = players_raw.ok_or((StatusCode::NOT_FOUND, "Match not found".to_string()))?;
+    let mut parts = players_raw.splitn(2, ':');
+    let player1 = parts.next().unwrap_or("").to_string();
+    let player2 = parts.next().unwrap_or("").to_string();
+
+    if claimant_id != player1 && claimant_id != player2 {
+        return Err((StatusCode::FORBIDDEN, "Claimant is not part of this match".to_string()));
+    }
+
+    // Short-circuit: if the match already ended, return whatever we have on
+    // record. This makes the endpoint idempotent on both sides.
+    let existing_winner: Option<String> = redis::cmd("GET")
+        .arg(format!("match:{}:winner", match_id))
+        .query_async(&mut *conn)
+        .await
+        .unwrap_or(None);
+    if let Some(winner) = existing_winner {
+        let reason: Option<String> = redis::cmd("GET")
+            .arg(format!("match:{}:end_reason", match_id))
+            .query_async(&mut *conn)
+            .await
+            .unwrap_or(None);
+        return Ok(Json(serde_json::json!({
+            "match_id": match_id,
+            "accepted": true,
+            "winner": winner,
+            "end_reason": reason.unwrap_or_else(|| "".to_string()),
+        })));
+    }
+
+    // Load YEN to know whose turn it is.
+    let yen_json = redis_client::get_match_state(&state.redis_pool, &match_id)
+        .await
+        .map_err(|_| (StatusCode::NOT_FOUND, "Match not found".to_string()))?;
+    let yen: YEN = serde_json::from_str(&yen_json)
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+    let active_player = if yen.turn() == 0 { &player1 } else { &player2 };
+
+    // The player whose turn it is cannot claim forfeit on themselves.
+    if active_player == &claimant_id {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "It is your turn; you cannot claim forfeit while your own clock is running".to_string(),
+        ));
+    }
+
+    // Check how long the current turn has been running.
+    let turn_started_at: Option<u64> = redis::cmd("GET")
+        .arg(format!("match:{}:turn_started_at", match_id))
+        .query_async(&mut *conn)
+        .await
+        .unwrap_or(None);
+    let turn_started_at = turn_started_at.unwrap_or(now_ms());
+
+    let elapsed = now_ms().saturating_sub(turn_started_at);
+    let threshold = TURN_MS + FORFEIT_GRACE_MS;
+    if elapsed < threshold {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            format!("Too soon to forfeit: {}ms elapsed, need {}ms", elapsed, threshold),
+        ));
+    }
+
+    // Settle the match: claimant wins, opponent forfeits.
+    let _: Result<(), _> = redis::cmd("SET")
+        .arg(format!("match:{}:winner", match_id))
+        .arg(&claimant_id)
+        .arg("EX")
+        .arg(3600u64)
+        .query_async(&mut *conn)
+        .await;
+    let _: Result<(), _> = redis::cmd("SET")
+        .arg(format!("match:{}:end_reason", match_id))
+        .arg("forfeit")
+        .arg("EX")
+        .arg(3600u64)
+        .query_async(&mut *conn)
+        .await;
+    let _: Result<(), _> = redis::cmd("SET")
+        .arg(format!("match:{}:status", match_id))
+        .arg("finished")
+        .arg("EX")
+        .arg(3600u64)
+        .query_async(&mut *conn)
+        .await;
+
+    Ok(Json(serde_json::json!({
+        "match_id": match_id,
+        "accepted": true,
+        "winner": claimant_id,
+        "end_reason": "forfeit",
     })))
 }
 
@@ -396,23 +632,8 @@ impl FromRef<Arc<AppState>> for AppState {
     }
 }
 
-pub async fn run() {
-    // 1. Obtener config de REDIS
-    let redis_host = std::env::var("REDIS_HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
-    let redis_port = std::env::var("REDIS_PORT").unwrap_or_else(|_| "6379".to_string());
-    let redis_url = format!("redis://{}:{}/", redis_host, redis_port);
-    let pool = redis_client::create_pool(&redis_url).await;
-
-    // 2. Obtener config de GAMEY (En Docker será "gamey")
-    let gamey_url = get_gamey_url();
-
-    // Usamos Arc para que el estado sea compartido eficientemente
-    let state = Arc::new(AppState {
-        redis_pool: pool,
-        gamey_url,
-    });
-
-    let app = Router::new()
+pub fn build_router(state: Arc<AppState>) -> Router {
+    Router::new()
         .route("/new", post(create_match))
         .route("/executeMove", post(execute_move))
         .route("/reqBotMove", post(request_bot_move))
@@ -425,8 +646,26 @@ pub async fn run() {
         .route("/joinMatch", post(join_online_match))
         .route("/requestOnlineGameUpdate", post(request_online_update))
         .route("/matchStatus/{match_id}", get(match_status))
+        .route("/matchTurnInfo/{match_id}", get(match_turn_info))
+        .route("/cancelMatch/{match_id}", delete(cancel_match))
+        .route("/claimForfeit/{match_id}", post(claim_forfeit))
+        .with_state(state)
+}
 
-        .with_state(state);
+pub async fn run() {
+    let redis_host = std::env::var("REDIS_HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
+    let redis_port = std::env::var("REDIS_PORT").unwrap_or_else(|_| "6379".to_string());
+    let redis_url = format!("redis://{}:{}/", redis_host, redis_port);
+    let pool = redis_client::create_pool(&redis_url).await;
+
+    let gamey_url = get_gamey_url();
+
+    let state = Arc::new(AppState {
+        redis_pool: pool,
+        gamey_url,
+    });
+
+    let app = build_router(state);
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 5000));
     println!("GameManager listening in http://{}", addr);

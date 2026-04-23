@@ -54,14 +54,12 @@
     "rankings": "Rankings",
     "volume": "Volume",
     "settings": "Settings",
-    "user": "User",
-    "language": "Language"
+    "user": "User"
   },
   "settings": {
     "title": "SETTINGS",
     "sections": {
       "audio": "Audio",
-      "game": "Game",
       "account": "Account",
       "language": "Language"
     },
@@ -69,11 +67,6 @@
       "soundSettings": "Sound Settings",
       "masterVolume": "Master Volume",
       "musicVolume": "Music Volume"
-    },
-    "game": {
-      "preferences": "Game Preferences",
-      "showHints": "Show move hints",
-      "confirmMoves": "Confirm moves"
     },
     "account": {
       "guest": "Guest",

@@ -193,7 +193,7 @@ const StatisticsPanelView = ({
               key={`form-${i}`}
               className={styles.formDot}
               style={{ background: win ? WIN_COLOR : LOSS_COLOR }}
-              title={win ? t('statistics.wins') : 'Loss'}
+              title={win ? 'Win' : 'Loss'}
             />
           ))}
         </div>

@@ -58,28 +58,6 @@
   transform: scale(1.1);
 }
 
-.languageBtn {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.langBadge {
-  position: absolute;
-  bottom: -0.25rem;
-  right: -0.25rem;
-  background: var(--primary-color, #4da3ff);
-  color: #fff;
-  font-size: 0.5rem;
-  font-weight: 700;
-  line-height: 1;
-  padding: 0.1rem 0.2rem;
-  border-radius: 0.25rem;
-  pointer-events: none;
-  letter-spacing: 0.02em;
-}
-
 /* ── Tablet < 45rem (720 px) ── */
 @media (max-width: 45rem) {
   .topRightMenu {

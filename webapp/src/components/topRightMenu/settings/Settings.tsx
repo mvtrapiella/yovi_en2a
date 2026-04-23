@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import styles from './Settings.module.css';
 import { AudioSettings } from './settingsSections/AudioSettings';
-import { GameSettings } from './settingsSections/GameSettings';
 import { AccountSettings } from './settingsSections/AccountSettings';
 import { LanguageSettings } from './settingsSections/LanguageSettings';
 import { useUser } from '../../../contexts/UserContext';
@@ -16,7 +15,6 @@ const SettingsMenu: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 
   const sections = useMemo(() => [
     new AudioSettings(),
-    new GameSettings(),
     new AccountSettings(isLoggedIn, username, navigate, logout),
     new LanguageSettings(),
   ], [isLoggedIn, username, navigate, logout]);

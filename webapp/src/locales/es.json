@@ -54,14 +54,12 @@
     "rankings": "Clasificación",
     "volume": "Volumen",
     "settings": "Ajustes",
-    "user": "Usuario",
-    "language": "Idioma"
+    "user": "Usuario"
   },
   "settings": {
     "title": "AJUSTES",
     "sections": {
       "audio": "Audio",
-      "game": "Juego",
       "account": "Cuenta",
       "language": "Idioma"
     },
@@ -69,11 +67,6 @@
       "soundSettings": "Ajustes de sonido",
       "masterVolume": "Volumen principal",
       "musicVolume": "Volumen de música"
-    },
-    "game": {
-      "preferences": "Preferencias de juego",
-      "showHints": "Mostrar pistas de movimiento",
-      "confirmMoves": "Confirmar movimientos"
     },
     "account": {
       "guest": "Invitado",

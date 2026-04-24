@@ -135,13 +135,6 @@ export const GameModeContainer: React.FC<Props> = ({ mode }) => {
             : mode.showOnlyJoin ? "joinOnly"
                 : "play";
 
-    // Private rooms (createJoin): hide the size selector as soon as the user
-    // starts typing a Match ID — it's the universal signal for "I'm joining
-    // someone else's room". For CREATE (empty matchId), the size selector
-    // stays so the creator can pick. Public joinOnly → always hidden.
-    const hideSizeSelector =
-        mode.hideSize ||
-        (buttonMode === "createJoin" && matchId.trim().length > 0);
 
     return (
         <div className={styles.gameModeContainer}>
@@ -183,7 +176,7 @@ export const GameModeContainer: React.FC<Props> = ({ mode }) => {
                     </div>
                 )}
 
-                {!hideSizeSelector && (
+                {(
                     <div className={styles.sizeSection}>
                         <span className={styles.difficultyLabel}>Size</span>
                         <div className={styles.difficultySelector}>

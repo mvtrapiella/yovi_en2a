@@ -6,7 +6,7 @@ import { NormalMode } from '../components/gameSelection/gameModes/NormalMode'
 import { LocalMode } from '../components/gameSelection/gameModes/LocalMode'
 import '@testing-library/jest-dom'
 
-// 1. Mockeamos la navegación porque ahora el botón PLAY usa React Router
+// 1. Mock navigation because the PLAY button now uses React Router
 const mockNavigate = vi.fn()
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual('react-router-dom')
@@ -16,49 +16,64 @@ vi.mock('react-router-dom', async () => {
   }
 })
 
+// 2. Mock the UserContext so the component doesn't throw "useUser must be used
+//    within a UserProvider". By default we return a logged-in user so
+//    isGuest === false unless the test explicitly passes guest:true in state.
+vi.mock('../contexts/UserContext', () => ({
+  useUser: vi.fn(() => ({
+    user: { username: 'tester', email: 't@t.com' },
+    isLoggedIn: true,
+    loading: false,
+    error: null,
+    refreshUser: vi.fn(),
+    logout: vi.fn(),
+    updateUsername: vi.fn(),
+  })),
+}))
+
 describe('GameModeContainer Component', () => {
   afterEach(() => {
     cleanup()
     vi.restoreAllMocks()
-    mockNavigate.mockClear() // Limpiamos la navegación entre tests
+    mockNavigate.mockClear()
   })
 
   test('should render mode info, image and difficulty section', () => {
     const mode = new NormalMode()
     render(<MemoryRouter><GameModeContainer mode={mode} /></MemoryRouter>)
-    
+
     expect(screen.getByText(mode.label)).toBeInTheDocument()
-    expect(screen.getByText(mode.description)).toBeInTheDocument() 
+    expect(screen.getByText(mode.description)).toBeInTheDocument()
     expect(screen.getByAltText(mode.label)).toBeInTheDocument()
-    
+
     expect(screen.getByText('Size')).toBeInTheDocument()
     expect(screen.getByText('PLAY')).toBeInTheDocument()
   })
 
   test('should navigate to the game on PLAY click', () => {
     const mode = new NormalMode()
-    
+
     render(<MemoryRouter><GameModeContainer mode={mode} /></MemoryRouter>)
-    
+
     const playButton = screen.getByText('PLAY')
     fireEvent.click(playButton)
-    
-    // 2. Comprobamos que el botón PLAY realmente llama a la redirección de React Router
+
+    // The PLAY button must trigger a React Router redirection
     expect(mockNavigate).toHaveBeenCalled()
   })
 
   test('should handle difficulty navigation clicks', () => {
     const mode = new NormalMode()
     render(<MemoryRouter><GameModeContainer mode={mode} /></MemoryRouter>)
-    
-    // 3. Como ahora hay flechas para Difficulty y para Size, obtenemos TODAS las flechas
+
+    // There are now arrows for Difficulty AND for Size, so we grab all of them
     const leftArrows = screen.getAllByText('←')
     const rightArrows = screen.getAllByText('→')
 
-    // Hacemos clic en el primer set de flechas (el de Difficulty)
+    // Click the first set of arrows (the Difficulty one)
     fireEvent.click(rightArrows[0])
     fireEvent.click(leftArrows[0])
-    
+
     expect(leftArrows[0]).toBeInTheDocument()
     expect(rightArrows[0]).toBeInTheDocument()
   })
@@ -86,9 +101,12 @@ describe('GameModeContainer Component', () => {
 
     fireEvent.click(screen.getByText('PLAY'))
 
+    // The component always passes a navState object as the second arg
+    // (never `undefined`). When the user is logged in and not a guest,
+    // the state is an empty object.
     expect(mockNavigate).toHaveBeenCalledWith(
       expect.stringContaining('/multi'),
-      undefined
+      { state: {} }
     )
   })
 

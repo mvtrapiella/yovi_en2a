@@ -21,6 +21,8 @@ async fn test_full_ranking_and_match_lifecycle() {
         result: "WIN".to_string(),
         board_status: dummy_board,
         time: 45.5,
+        moves: vec![],
+        created_at: 0,
     };
 
     let save_res = insert_match_by_id(&match_id, match_data).await;

@@ -31,6 +31,24 @@ jobs:
       run: |
         sed -i "s|SF:${GITHUB_WORKSPACE}/|SF:|g" gamey/lcov.info
         grep '^SF:' gamey/lcov.info | head
+    - name: Setup Firebase credentials for Rust tests
+      run: |
+        echo "$FIREBASE_CREDENTIALS_B64" | base64 -d > /tmp/firebase-credentials.json
+        echo "GOOGLE_APPLICATION_CREDENTIALS=/tmp/firebase-credentials.json" >> $GITHUB_ENV
+      env:
+        FIREBASE_CREDENTIALS_B64: ${{ secrets.FIREBASE_CREDENTIALS_B64 }}
+    - name: Generate game_manager code coverage
+      run: cd game_manager && cargo llvm-cov --lcov --output-path lcov.info
+      env:
+        FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+    - name: Normalize game_manager coverage paths
+      run: sed -i "s|SF:${GITHUB_WORKSPACE}/|SF:|g" game_manager/lcov.info
+    - name: Generate userAuthentification code coverage
+      run: cd userAuthentification && cargo llvm-cov --lcov --output-path lcov.info
+      env:
+        FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+    - name: Normalize userAuthentification coverage paths
+      run: sed -i "s|SF:${GITHUB_WORKSPACE}/|SF:|g" userAuthentification/lcov.info
     - name: Analyze with SonarQube
       uses: SonarSource/sonarqube-scan-action@master
       env:

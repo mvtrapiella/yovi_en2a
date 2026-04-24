@@ -3,6 +3,7 @@ use game_manager::data::{Match, Score};
 use serial_test::serial;
 use game_manager::data::{YEN};
 use ctor::ctor;
+use rand::Rng;
 
 
 #[ctor]
@@ -15,8 +16,8 @@ fn init_crypto() {
 #[tokio::test]
 #[serial]
 async fn test_full_match_cycle() {
-
-    let test_id = "test_3";
+    let mut rng = rand::thread_rng();
+    let test_id = format!("test_match_{}", rng.gen_range(10000..99999));
     let match_data = Match {
         player1id: "1".to_string(),
         player2id: "1".to_string(),
@@ -32,14 +33,14 @@ async fn test_full_match_cycle() {
         created_at: 0,
     };
 
-    let insert_result = insert_db("Match", test_id, &match_data).await;
+    let insert_result = insert_db("Match", &test_id, &match_data).await;
 
     if let Err(ref e) = insert_result {
         eprintln!("{}", e);
     }
 
     assert!(insert_result.is_ok(), "Inserting Error: {:?}", insert_result.err());
-    let read_result: Result<Match, _> = get_match_by_id(test_id).await;
+    let read_result: Result<Match, _> = get_match_by_id(&test_id).await;
     assert!(read_result.is_ok(), "Read-back error");
 
     let fetched:Match = read_result.unwrap();

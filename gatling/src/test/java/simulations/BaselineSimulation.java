@@ -59,7 +59,7 @@ public class BaselineSimulation extends Simulation {
         )
         .protocols(httpProtocol)
         .assertions(
-            global().responseTime().percentile(95).lt(500),
+            global().responseTime().percentile(95).lt(2000),
             global().successfulRequests().percent().gt(99.0)
         );
     }

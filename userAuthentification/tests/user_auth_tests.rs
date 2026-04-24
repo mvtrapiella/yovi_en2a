@@ -16,12 +16,12 @@ async fn test_full_user_auth_cycle() {
 
     // --- 1. Test Registration ---
     // Registration of a new unique email
-    let register_result = register_user(&test_email, test_username, test_password).await;
+    let register_result = register_user(&test_email, &test_username, test_password).await;
     assert!(register_result.is_ok(), "Failed to register new user: {:?}", register_result.err());
 
     // --- 2. Test Duplicate Registration (Should Fail) ---
     // The system must prevent two accounts from using the same email address
-    let duplicate_register_result = register_user(&test_email, test_username, test_password).await;
+    let duplicate_register_result = register_user(&test_email, &test_username, test_password).await;
     assert!(
         duplicate_register_result.is_err(), 
         "Security Breach: System allowed registering the same email twice"

@@ -11,7 +11,7 @@ async fn test_full_user_auth_cycle() {
     let random_id: u64 = rng.gen_range(100_000_000..999_999_999);
     
     let test_email = format!("test_user_{}@example.com", random_id);
-    let test_username = "test_automation_user";
+    let test_username = format!("test_user_{}", random_id);
     let test_password = "SecurePassword2026!";
 
     // --- 1. Test Registration ---

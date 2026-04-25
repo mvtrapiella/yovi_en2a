@@ -356,9 +356,14 @@ describe('extractOccupiedFromYen', () => {
     test('parses mixed B and R cells', () => {
         // size=2: row 0 = "B", row 1 = "BR"
         const yen: Yen = { size: 2, layout: 'B/BR' };
+
         const result = extractOccupiedFromYen(yen);
+
         expect(result).toHaveLength(3);
-        const symbols = result.map((c) => c.symbol).sort();
+        const symbols = result
+            .map((c) => c.symbol)
+            .sort((a, b) => a.localeCompare(b));
+
         expect(symbols).toEqual(['B', 'B', 'R']);
     });
 

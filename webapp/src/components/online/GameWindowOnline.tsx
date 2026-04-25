@@ -42,6 +42,8 @@ import { useUser } from "../../contexts/UserContext";
 import MobileCountdownBar from "./MobileCountdownBar";
 
 const FORFEIT_GRACE_MS = 10_000;
+const crypto = window.crypto;
+const array = new Uint32Array(1);
 
 type OnlineNavState = {
     matchId?: string;
@@ -418,7 +420,9 @@ const GameWindowOnline = () => {
             }
         }
         if (empty.length === 0) return null;
-        return empty[Math.floor(Math.random() * empty.length)];
+
+        crypto.getRandomValues(array);
+        return empty[Math.floor(array[0] * empty.length)];
     }, []);
 
     // Momento en que este cliente entró en el turno actual (key = epoch).

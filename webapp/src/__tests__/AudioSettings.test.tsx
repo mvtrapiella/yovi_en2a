@@ -1,80 +1,63 @@
 import { render, screen, fireEvent, cleanup } from '@testing-library/react'
-import { describe, test, expect, afterEach, vi, beforeEach } from 'vitest'
+import { describe, test, expect, afterEach } from 'vitest'
 import { AudioSettings } from '../components/topRightMenu/settings/settingsSections/AudioSettings'
 import '@testing-library/jest-dom'
 
-const mockSetMasterVolume = vi.fn();
-
-vi.mock('../contexts/AudioContext', () => ({
-  useAudio: () => ({
-    masterVolume:        80,
-    isMuted:             false,
-    setMasterVolume:     mockSetMasterVolume,
-    toggleMute:          vi.fn(),
-    playMoveSound:       vi.fn(),
-    playGameOverSound:   vi.fn(),
-    playGameStartSound:  vi.fn(),
-    playGameVictorySound: vi.fn(),
-  }),
-}));
-
 describe('AudioSettings Strategy', () => {
-  const audioSettings = new AudioSettings();
+  const audioSettings = new AudioSettings()
 
-  beforeEach(() => {
-    mockSetMasterVolume.mockClear();
-  });
-
+  // This is crucial: It clears the DOM after each test to prevent 
+  // event listener conflicts that hide coverage.
   afterEach(() => {
-    cleanup();
-  });
+    cleanup()
+  })
 
-  test('should render sound settings title and master volume slider', () => {
-    render(audioSettings.render());
+  test('should render sound settings title and sliders', () => {
+    render(audioSettings.render())
+    
+    expect(screen.getByText(/Sound Settings/i)).toBeInTheDocument()
+    expect(screen.getByText(/Master Volume/i)).toBeInTheDocument()
+    expect(screen.getByText(/Music Volume/i)).toBeInTheDocument()
+  })
 
-    expect(screen.getByText(/Sound Settings/i)).toBeInTheDocument();
-    expect(screen.getByText(/Master Volume/i)).toBeInTheDocument();
-  });
+  test('should handle all input and mouse interactions (Covers lines 22-24)', () => {
+    render(audioSettings.render())
+    
+    // Selecting the Master Volume slider (default 80)
+    const slider = screen.getByDisplayValue('80')
+    const tooltip = screen.getByText('80')
 
-  test('should display master volume value from AudioContext', () => {
-    render(audioSettings.render());
+    if (!(slider instanceof HTMLInputElement)) {
+      throw new TypeError('Element is not an HTMLInputElement')
+    }
 
-    const masterSlider = screen.getByDisplayValue('80');
-    expect(masterSlider).toBeInTheDocument();
-  });
+    // 1. Test onInput (Line 22)
+    fireEvent.input(slider, { target: { value: '40' } })
+    expect(slider.value).toBe('40')
 
-  test('should call setMasterVolume when Master Volume slider changes', () => {
-    render(audioSettings.render());
+    // 2. Test onMouseDown (Line 23)
+    // Use regex match on className to bypass CSS Modules hashing
+    fireEvent.mouseDown(slider)
+    expect(tooltip.className).toMatch(/visible/i)
 
-    const masterSlider = screen.getByDisplayValue('80');
-    fireEvent.input(masterSlider, { target: { value: '40' } });
+    // 3. Test onMouseUp (Line 24)
+    fireEvent.mouseUp(slider)
+    expect(tooltip.className).not.toMatch(/visible/i)
+  })
 
-    expect(mockSetMasterVolume).toHaveBeenCalledWith(40);
-  });
+  test('should handle all touch interactions (Covers lines 25-26)', () => {
+    render(audioSettings.render())
+    
+    // Selecting the Music Volume slider (default 50)
+    const slider = screen.getByDisplayValue('50')
+    const tooltip = screen.getByText('50')
 
-  test('should show tooltip on mouseDown and hide on mouseUp', () => {
-    render(audioSettings.render());
+    // 1. Test onTouchStart (Line 25)
+    fireEvent.touchStart(slider)
+    expect(tooltip.className).toMatch(/visible/i)
 
-    const masterSlider = screen.getByDisplayValue('80');
-    const tooltip = screen.getByText('80');
-
-    fireEvent.mouseDown(masterSlider);
-    expect(tooltip.className).toMatch(/visible/i);
-
-    fireEvent.mouseUp(masterSlider);
-    expect(tooltip.className).not.toMatch(/visible/i);
-  });
-
-  test('should show tooltip on touchStart and hide on touchEnd', () => {
-    render(audioSettings.render());
-
-    const masterSlider = screen.getByDisplayValue('80');
-    const tooltip = screen.getByText('80');
-
-    fireEvent.touchStart(masterSlider);
-    expect(tooltip.className).toMatch(/visible/i);
-
-    fireEvent.touchEnd(masterSlider);
-    expect(tooltip.className).not.toMatch(/visible/i);
-  });
-});
+    // 2. Test onTouchEnd (Line 26)
+    fireEvent.touchEnd(slider)
+    expect(tooltip.className).not.toMatch(/visible/i)
+  })
+})

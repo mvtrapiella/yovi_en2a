@@ -1,18 +1,15 @@
 import React, { useState } from 'react';
-import { useTranslation } from 'react-i18next';
 import styles from './Ranking.module.css';
 import { LocalRanking } from './rankingTypes/LocalRanking';
 import { GlobalRanking } from './rankingTypes/GlobalRanking';
 
+const RANKING_TYPES = [
+  { id: 'local',  label: 'Local',  Component: LocalRanking  },
+  { id: 'global', label: 'Global', Component: GlobalRanking },
+] as const;
+
 const Ranking: React.FC<{ onClose: () => void }> = ({ onClose }) => {
-  const { t } = useTranslation();
-  const [activeTabId, setActiveTabId] = useState<'local' | 'global'>('local');
-
-  const RANKING_TYPES = [
-    { id: 'local'  as const, labelKey: 'rankings.local',  Component: LocalRanking  },
-    { id: 'global' as const, labelKey: 'rankings.global', Component: GlobalRanking },
-  ];
-
+  const [activeTabId, setActiveTabId] = useState<string>(RANKING_TYPES[0].id);
   const current = RANKING_TYPES.find(r => r.id === activeTabId)!;
 
   return (
@@ -21,7 +18,7 @@ const Ranking: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         <button className="top-right-menu-close-btn" onClick={onClose} aria-label="Close">✕</button>
 
         <header className="top-right-menu-global-header">
-          <h2 className="top-right-menu-title">{t('rankings.title')}</h2>
+          <h2 className="top-right-menu-title">RANKINGS</h2>
         </header>
 
         <div className={`top-right-menu-body ${styles.rankingBody}`}>
@@ -35,7 +32,7 @@ const Ranking: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                     className={`${styles.rankingTabBtn} ${activeTabId === type.id ? styles.active : ''}`}
                     onClick={() => setActiveTabId(type.id)}
                   >
-                    {t(type.labelKey)}
+                    {type.label}
                   </button>
                 ))}
               </div>

@@ -1,6 +1,5 @@
     use std::ffi::{c_float};
     use serde::{Deserialize, Serialize};
-    use crate::api_rest::get_gamey_url;
     pub trait DBData: Serialize + for<'de> Deserialize<'de> + std::fmt::Debug  + Send + Sync {}
 
     #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -150,6 +149,15 @@
         pub coord_z: u32,
     }
 
+    #[derive(Deserialize)]
+    pub struct MoveRequestOnline {
+        pub match_id: String,
+        pub coord_x: u32,
+        pub coord_y: u32,
+        pub coord_z: u32,
+        pub player_id: u8,
+    }
+
     #[derive(Serialize)]
     pub struct MoveResponse {
         pub match_id: String,
@@ -220,18 +228,56 @@ pub struct SaveMatchResponse {
     pub message: String,
 }
 
-    #[derive(Serialize, Deserialize, Debug, Clone)]
-    pub struct PlayResponse {
-        /// The API version used for this request.
-        pub api_version: String,
-        /// The bot that selected this move.
-        pub bot_id: String,
-        /// The coordinates where the bot chose to place its piece.
-        pub coords: Coordinates,
-        /// The updated board state in YEN notation after the bot's move.
-        pub position: YEN,
-        /// Whether the game is finished after this move.
-        pub game_over: bool,
-        /// The winner's symbol ("B" or "R") if the game is over, otherwise null.
-        pub winner: Option<String>,
-    }
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct PlayResponse {
+    /// The API version used for this request.
+    pub api_version: String,
+    /// The bot that selected this move.
+    pub bot_id: String,
+    /// The coordinates where the bot chose to place its piece.
+    pub coords: Coordinates,
+    /// The updated board state in YEN notation after the bot's move.
+    pub position: YEN,
+    /// Whether the game is finished after this move.
+    pub game_over: bool,
+    /// The winner's symbol ("B" or "R") if the game is over, otherwise null.
+    pub winner: Option<String>,
+}
+
+// Online matches
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct CreateOnlineMatchRequest{
+    pub match_id: String,
+    pub match_password: String,
+    pub player1id: String,
+    pub size:u32,
+}
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct CreateOnlineMatchResponse{
+    pub match_id: String,
+    pub turn_number: u32,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct JoinOnlineMatchRequest{
+    pub match_id: String,
+    pub match_password: String,
+    pub player2id: String,
+}
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct JoinOnlineMatchResponse{
+    pub match_id: String,
+    pub turn_number: u32,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct UpdateOnlineMatchRequest{
+    pub match_id: String,
+    pub turn_number: u32,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct UpdateOnlineMatchResponse{
+    pub match_id: String,
+    pub board_status: YEN,
+}

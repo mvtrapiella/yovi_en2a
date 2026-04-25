@@ -2,8 +2,7 @@ import { render, screen, cleanup } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { renderHook, act } from '@testing-library/react'
 import { describe, test, expect, vi, afterEach } from 'vitest'
-import Pagination from '../components/topRightMenu/ranking/Pagination'
-import { usePagination } from '../components/topRightMenu/ranking/usePagination'
+import Pagination, { usePagination } from '../components/topRightMenu/ranking/Pagination'
 import '@testing-library/jest-dom'
 
 // ─── helpers ────────────────────────────────────────────────────────────────

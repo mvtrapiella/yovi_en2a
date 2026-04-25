@@ -1,5 +1,4 @@
 import "./RightPanel.css";
-import { useTranslation } from "react-i18next";
 import { useUser } from "../../../contexts/UserContext";
 
 type Props = {
@@ -9,7 +8,6 @@ type Props = {
 };
 
 export default function RightPanel({ turn, time = "00:00", mode }: Readonly<Props>) {
-  const { t } = useTranslation();
   const { user } = useUser();
   const isP1 = turn === 1;
 
@@ -22,21 +20,21 @@ export default function RightPanel({ turn, time = "00:00", mode }: Readonly<Prop
         <div className="rightpanel-meta">{meta}</div>
       </div>
     </div>
-    <span className="rightpanel-chip">{isActive ? t('rightPanel.yourTurn') : t('rightPanel.waiting')}</span>
+    <span className="rightpanel-chip">{isActive ? "YOUR TURN" : "WAITING"}</span>
   </div>
   );
 
   return (
     <div className="rightpanel">
       <section className="rightpanel-card">
-        <h4 className="rightpanel-title">{t('rightPanel.timer')}</h4>
+        <h4 className="rightpanel-title">Timer</h4>
         <div className="rightpanel-time">{time}</div>
       </section>
 
       <section className="rightpanel-card">
-        <h4 className="rightpanel-title">{t('rightPanel.players')}</h4>
-        <Player name={user?.username ?? t('rightPanel.player1')} isBlue isActive={isP1} meta={t('rightPanel.human')} />
-        <Player name={t('rightPanel.player2')} isBlue={false} isActive={!isP1} meta={mode === "bot" ? t('rightPanel.bot') : t('rightPanel.human')} />
+        <h4 className="rightpanel-title">Players</h4>
+        <Player name={user?.username ?? "Player 1"} isBlue isActive={isP1} meta="Human" />
+        <Player name="Player 2" isBlue={false} isActive={!isP1} meta={mode === "bot" ? "Bot" : "Human"} />
       </section>
     </div>
   );

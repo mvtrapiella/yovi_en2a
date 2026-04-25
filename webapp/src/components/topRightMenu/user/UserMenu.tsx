@@ -1,12 +1,10 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useTranslation } from 'react-i18next';
 import styles from './UserMenu.module.css';
 import accountStyles from '../settings/settingsSections/AccountSettings.module.css';
 import { useUser } from '../../../contexts/UserContext';
 
 const UserMenu: React.FC<{ onClose: () => void }> = ({ onClose }) => {
-  const { t } = useTranslation();
   const navigate = useNavigate();
   const { user, logout, updateUsername } = useUser();
 
@@ -27,7 +25,7 @@ const UserMenu: React.FC<{ onClose: () => void }> = ({ onClose }) => {
       await updateUsername(newUsername);
       setIsEditing(false);
     } catch (err: any) {
-      setUsernameError(err.message ?? t('userMenu.failedUpdate'));
+      setUsernameError(err.message ?? 'Failed to update username.');
     }
   };
 
@@ -37,27 +35,27 @@ const UserMenu: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         <div className="top-right-menu-container">
           <button className="top-right-menu-close-btn" onClick={onClose} aria-label="Close">✕</button>
           <header className="top-right-menu-global-header">
-            <h2 className="top-right-menu-title">{t('userMenu.title')}</h2>
+            <h2 className="top-right-menu-title">USER PROFILE</h2>
           </header>
           <div className={styles.body}>
             <div className={accountStyles.profileCard}>
               <div className={accountStyles.avatarGuest}>?</div>
               <div className={accountStyles.profileInfo}>
-                <span className={accountStyles.profileName}>{t('userMenu.guestUser')}</span>
-                <span className={accountStyles.profileStatus}>{t('userMenu.notLoggedIn')}</span>
+                <span className={accountStyles.profileName}>Guest User</span>
+                <span className={accountStyles.profileStatus}>Not logged in</span>
               </div>
             </div>
 
             <div className={styles.guestMessageContainer}>
-              <p className={styles.guestText}>{t('userMenu.joinUs')}</p>
-              <p className={styles.guestSubtext}>{t('userMenu.logInForProfile')}</p>
+              <p className={styles.guestText}>Join us to save your progress!</p>
+              <p className={styles.guestSubtext}>Log in to access your profile settings and match history.</p>
             </div>
 
             <button
               className={styles.loginBtn}
               onClick={() => { onClose(); navigate('/login'); }}
             >
-              {t('userMenu.goToLogin')}
+              Go to Login
             </button>
           </div>
         </div>
@@ -70,7 +68,7 @@ const UserMenu: React.FC<{ onClose: () => void }> = ({ onClose }) => {
       <div className="top-right-menu-container">
         <button className="top-right-menu-close-btn" onClick={onClose} aria-label="Close">✕</button>
         <header className="top-right-menu-global-header">
-          <h2 className="top-right-menu-title">{t('userMenu.title')}</h2>
+          <h2 className="top-right-menu-title">USER PROFILE</h2>
         </header>
         <div className={styles.body}>
           <div className={accountStyles.profileCard}>
@@ -85,7 +83,7 @@ const UserMenu: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 
           <div className={styles.profileCard}>
             <div className={styles.infoGroup}>
-              <p>{t('userMenu.username')}</p>
+              <p>Username</p>
               {isEditing ? (
                 <>
                   <div className={styles.editRow}>
@@ -95,22 +93,22 @@ const UserMenu: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                       onChange={(e) => setNewUsername(e.target.value)}
                       className={styles.input}
                     />
-                    <button onClick={handleSaveUsername} className={styles.saveBtn}>{t('userMenu.save')}</button>
-                    <button onClick={() => { setIsEditing(false); setUsernameError(null); }} className={styles.cancelBtn}>{t('userMenu.cancel')}</button>
+                    <button onClick={handleSaveUsername} className={styles.saveBtn}>Save</button>
+                    <button onClick={() => { setIsEditing(false); setUsernameError(null); }} className={styles.cancelBtn}>Cancel</button>
                   </div>
                   {usernameError && <p style={{ color: '#ff4444', fontSize: '0.85rem', marginTop: '0.5rem' }}>{usernameError}</p>}
                 </>
               ) : (
                 <div className={styles.displayRow}>
                   <span>{user.username}</span>
-                  <button onClick={() => setIsEditing(true)} className={styles.editBtn}>{t('userMenu.edit')}</button>
+                  <button onClick={() => setIsEditing(true)} className={styles.editBtn}>Edit</button>
                 </div>
               )}
             </div>
           </div>
 
           <button onClick={handleLogout} className={styles.logoutBtn}>
-            {t('userMenu.logOut')}
+            Log Out
           </button>
         </div>
       </div>

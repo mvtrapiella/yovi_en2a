@@ -1,10 +1,5 @@
 {
   "dependencies": {
     "rand": "^0.0.4"
-  },
-  "scripts": {
-    "load-test": "powershell -File gatling/run-load-tests.ps1",
-    "load-test:baseline": "powershell -File gatling/run-load-tests.ps1 BaselineSimulation",
-    "load-test:auth": "powershell -File gatling/run-load-tests.ps1 AuthSimulation"
   }
 }

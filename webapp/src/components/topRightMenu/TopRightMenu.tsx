@@ -1,6 +1,8 @@
+
 import React, { useState } from 'react';
-import { useTranslation } from 'react-i18next';
+// 1. Import the module styles
 import styles from './TopRightMenu.module.css';
+// Keep global layout styles if they aren't modules yet
 import '../../styles/layout/TopRightMenuLayout.css';
 import MenuButtons from '../generalComponents/MenuButtons.tsx';
 import helpIcon from '../../assets/help_icon.svg';
@@ -14,45 +16,48 @@ import SettingsMenu from './settings/Settings.tsx';
 import Ranking from './ranking/Ranking.tsx';
 import UserMenu from './user/UserMenu.tsx';
 import HelpMenu from './help/HelpMenu';
-import { useAudio } from '../../contexts/AudioContext';
 
 type MenuType = 'settings' | 'rankings' | 'help' | 'user' | null;
 
 const TopRightMenu: React.FC = () => {
-  const { t } = useTranslation();
-  const { isMuted, toggleMute } = useAudio();
+  const [isMuted, setIsMuted] = useState(false);
   const [activeMenu, setActiveMenu] = useState<MenuType>(null);
+
+  const handleVolumeClick = () => {
+    setIsMuted(!isMuted);
+  };
 
   const closeMenu = () => setActiveMenu(null);
 
   return (
+    // 2. Apply the module class
     <div className={styles.topRightMenu}>
       <MenuButtons
-        label={t('topRightMenu.help')}
+        label="Help"
         onClick={() => setActiveMenu('help')}
         img={helpIcon}
       />
-
+      
       <MenuButtons
-        label={t('topRightMenu.rankings')}
+        label="Rankings"
         onClick={() => setActiveMenu('rankings')}
         img={rankingIcon}
       />
-
+      
       <MenuButtons
-        label={t('topRightMenu.volume')}
-        onClick={toggleMute}
+        label="Volume"
+        onClick={handleVolumeClick}
         img={isMuted ? volumeMuteIcon : volumeUnmuteIcon}
       />
-
+      
       <MenuButtons
-        label={t('topRightMenu.settings')}
+        label="Settings"
         onClick={() => setActiveMenu('settings')}
         img={configIcon}
       />
 
       <MenuButtons
-        label={t('topRightMenu.user')}
+        label="User"
         onClick={() => setActiveMenu('user')}
         img={userIcon}
       />

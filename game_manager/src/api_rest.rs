@@ -248,7 +248,7 @@ async fn get_local_rankings(
     let matches = match crate::firebase::get_user_matches(&payload.user_id).await {
         Ok(partidas_encontradas) => partidas_encontradas,
         Err(error) => {
-            eprintln!("🚨 ERROR LEYENDO FIRESTORE (Usuario: {}): {:?}", payload.user_id, error);
+            eprintln!("ERROR LEYENDO FIRESTORE (Usuario: {}): {:?}", payload.user_id, error);
             vec![]
         }
     };

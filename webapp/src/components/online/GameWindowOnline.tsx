@@ -94,6 +94,13 @@ const GameWindowOnline = () => {
     const endedRef = useRef(false);
 
     const { formattedTime, resetTimer } = useTimer(!game.gameOver);
+    // Frozen snapshot of formattedTime captured at the exact moment of game over.
+    // Prevents the timer from ticking further while the modal is open.
+    const [frozenTime, setFrozenTime] = useState<string | null>(null);
+    // Ref so handleGameOver (a useCallback) can read the latest value without
+    // being re-created every time the formatted string changes.
+    const formattedTimeRef = useRef(formattedTime);
+    formattedTimeRef.current = formattedTime;
 
     const gameRef = useRef(game);
     gameRef.current = game;
@@ -279,7 +286,11 @@ const GameWindowOnline = () => {
         (iWon: boolean, reason: "normal" | "forfeit" = "normal") => {
             if (endedRef.current) return;
             endedRef.current = true;
-            game.gameOver=true;
+            game.gameOver = true;
+
+            // Capture the timer value at this exact instant, before the
+            // useTimer hook has a chance to stop and before React re-renders.
+            setFrozenTime(formattedTimeRef.current);
 
             if (reason === "forfeit") {
                 setModalMessage(iWon ? "Opponent forfeited — you win!" : "You forfeited the match.");
@@ -575,7 +586,7 @@ const GameWindowOnline = () => {
                             ✕
                         </button>
                         <h2>{modalMessage}</h2>
-                        <p>Total time: {formattedTime}</p>
+                        <p>Total time: {frozenTime ?? formattedTime}</p>
                         <button
                             className={modalStyles.returnBtn}
                             onClick={() => navigate("/gameSelection")}

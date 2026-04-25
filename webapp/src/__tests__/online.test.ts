@@ -1,0 +1,389 @@
+// src/__tests__/online.test.ts
+//
+// Tests for the typed fetch wrappers in online.ts.
+// Mirrors the style of GameApi.test.ts: globalThis.fetch is replaced with a
+// vi.fn() for each case; no real network traffic occurs.
+
+import { describe, test, expect, vi, beforeEach } from 'vitest';
+import {
+    createOnlineMatch,
+    joinOnlineMatch,
+    executeMoveOnline,
+    getMatchStatus,
+    getMatchTurnInfo,
+    cancelMatch,
+    claimForfeit,
+    saveMatchToDb,
+    updateScore,
+    extractOccupiedFromYen,
+    ApiError,
+    type Yen,
+} from '../components/online/online';
+
+// Helper: build a minimal fetch mock that returns JSON.
+const mockFetchOk = (body: unknown) =>
+    vi.fn().mockResolvedValue({
+        ok: true,
+        headers: { get: () => 'application/json' },
+        json: async () => body,
+        text: async () => JSON.stringify(body),
+    } as any);
+
+const mockFetchError = (status: number, text = 'Error') =>
+    vi.fn().mockResolvedValue({
+        ok: false,
+        status,
+        statusText: text,
+        headers: { get: () => 'text/plain' },
+        text: async () => text,
+    } as any);
+
+beforeEach(() => {
+    vi.restoreAllMocks();
+});
+
+// ── createOnlineMatch ──────────────────────────────────────────────────────
+
+describe('createOnlineMatch', () => {
+    test('returns parsed response on success', async () => {
+        globalThis.fetch = mockFetchOk({ match_id: 'm1', turn_number: 0 });
+
+        const result = await createOnlineMatch({
+            player1id: 'p1',
+            size: 8,
+            match_id: 'm1',
+            match_password: 'secret',
+        });
+
+        expect(result).toEqual({ match_id: 'm1', turn_number: 0 });
+        expect(fetch).toHaveBeenCalledWith(
+            expect.stringContaining('/game/createMatch'),
+            expect.objectContaining({ method: 'POST' })
+        );
+    });
+
+    test('throws ApiError on non-OK response', async () => {
+        globalThis.fetch = mockFetchError(422, 'Unprocessable');
+
+        await expect(
+            createOnlineMatch({ player1id: 'p1', size: 8, match_id: 'm1', match_password: 'x' })
+        ).rejects.toBeInstanceOf(ApiError);
+    });
+
+    test('throws on network failure', async () => {
+        globalThis.fetch = vi.fn().mockRejectedValue(new Error('Network down'));
+
+        await expect(
+            createOnlineMatch({ player1id: 'p1', size: 8, match_id: 'm1', match_password: 'x' })
+        ).rejects.toThrow();
+    });
+});
+
+// ── joinOnlineMatch ────────────────────────────────────────────────────────
+
+describe('joinOnlineMatch', () => {
+    test('returns parsed response on success', async () => {
+        globalThis.fetch = mockFetchOk({ match_id: 'm1', turn_number: 1 });
+
+        const result = await joinOnlineMatch({
+            player2id: 'p2',
+            match_id: 'm1',
+            match_password: 'secret',
+        });
+
+        expect(result).toEqual({ match_id: 'm1', turn_number: 1 });
+    });
+
+    test('throws ApiError when match not found', async () => {
+        globalThis.fetch = mockFetchError(404, 'Not Found');
+
+        await expect(
+            joinOnlineMatch({ player2id: 'p2', match_id: 'bad', match_password: 'x' })
+        ).rejects.toBeInstanceOf(ApiError);
+    });
+});
+
+// ── executeMoveOnline ──────────────────────────────────────────────────────
+
+describe('executeMoveOnline', () => {
+    test('returns game_over flag on success', async () => {
+        globalThis.fetch = mockFetchOk({ match_id: 'm1', game_over: false });
+
+        const result = await executeMoveOnline({
+            match_id: 'm1',
+            coord_x: 1,
+            coord_y: 0,
+            coord_z: 0,
+            player_id: 0,
+        });
+
+        expect(result.game_over).toBe(false);
+    });
+
+    test('returns game_over: true when game ends', async () => {
+        globalThis.fetch = mockFetchOk({ match_id: 'm1', game_over: true });
+
+        const result = await executeMoveOnline({
+            match_id: 'm1',
+            coord_x: 2,
+            coord_y: 1,
+            coord_z: 0,
+            player_id: 1,
+        });
+
+        expect(result.game_over).toBe(true);
+    });
+
+    test('throws ApiError on server error', async () => {
+        globalThis.fetch = mockFetchError(500, 'Internal Server Error');
+
+        await expect(
+            executeMoveOnline({ match_id: 'm1', coord_x: 0, coord_y: 0, coord_z: 0, player_id: 0 })
+        ).rejects.toBeInstanceOf(ApiError);
+    });
+});
+
+// ── getMatchStatus ─────────────────────────────────────────────────────────
+
+describe('getMatchStatus', () => {
+    test('returns match status on success', async () => {
+        const payload = {
+            match_id: 'm1',
+            status: 'active',
+            player1id: 'p1',
+            player2id: 'p2',
+            ready: true,
+            winner: null,
+            end_reason: null,
+        };
+        globalThis.fetch = mockFetchOk(payload);
+
+        const result = await getMatchStatus('m1');
+
+        expect(result.status).toBe('active');
+        expect(result.player1id).toBe('p1');
+        expect(result.ready).toBe(true);
+    });
+
+    test('returns finished status with winner', async () => {
+        globalThis.fetch = mockFetchOk({
+            match_id: 'm1',
+            status: 'finished',
+            player1id: 'p1',
+            player2id: 'p2',
+            ready: true,
+            winner: 'p1',
+            end_reason: 'normal',
+        });
+
+        const result = await getMatchStatus('m1');
+
+        expect(result.status).toBe('finished');
+        expect(result.winner).toBe('p1');
+    });
+
+    test('throws ApiError on 404', async () => {
+        globalThis.fetch = mockFetchError(404, 'Not Found');
+
+        await expect(getMatchStatus('missing')).rejects.toBeInstanceOf(ApiError);
+    });
+});
+
+// ── getMatchTurnInfo ───────────────────────────────────────────────────────
+
+describe('getMatchTurnInfo', () => {
+    test('returns turn info on success', async () => {
+        const now = Date.now();
+        globalThis.fetch = mockFetchOk({
+            match_id: 'm1',
+            turn: 0,
+            turn_started_at: now,
+            now_server: now,
+            turn_duration_ms: 10_000,
+        });
+
+        const result = await getMatchTurnInfo('m1');
+
+        expect(result.turn_duration_ms).toBe(10_000);
+        expect(result.now_server).toBe(now);
+    });
+
+    test('throws ApiError on server error', async () => {
+        globalThis.fetch = mockFetchError(500);
+
+        await expect(getMatchTurnInfo('m1')).rejects.toBeInstanceOf(ApiError);
+    });
+});
+
+// ── cancelMatch ────────────────────────────────────────────────────────────
+
+describe('cancelMatch', () => {
+    test('resolves without throwing on success', async () => {
+        globalThis.fetch = vi.fn().mockResolvedValue({
+            ok: true,
+            headers: { get: () => 'application/json' },
+            json: async () => ({ cancelled: true }),
+            text: async () => '{"cancelled":true}',
+        } as any);
+
+        await expect(cancelMatch('m1')).resolves.toBeUndefined();
+    });
+
+    test('swallows 409 (match already active)', async () => {
+        globalThis.fetch = mockFetchError(409, 'Conflict');
+
+        // Should NOT throw — 409 is intentionally swallowed.
+        await expect(cancelMatch('m1')).resolves.toBeUndefined();
+    });
+
+    test('swallows non-409 errors with a console warning', async () => {
+        globalThis.fetch = mockFetchError(500, 'Internal Server Error');
+        const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+        await expect(cancelMatch('m1')).resolves.toBeUndefined();
+        expect(warnSpy).toHaveBeenCalled();
+    });
+});
+
+// ── claimForfeit ───────────────────────────────────────────────────────────
+
+describe('claimForfeit', () => {
+    test('returns forfeit result on success', async () => {
+        globalThis.fetch = mockFetchOk({
+            match_id: 'm1',
+            accepted: true,
+            winner: 'p1',
+            end_reason: 'forfeit',
+        });
+
+        const result = await claimForfeit('m1', 'p1');
+
+        expect(result.accepted).toBe(true);
+        expect(result.end_reason).toBe('forfeit');
+    });
+
+    test('throws ApiError when claim is rejected', async () => {
+        globalThis.fetch = mockFetchError(409, 'Already ended');
+
+        await expect(claimForfeit('m1', 'p1')).rejects.toBeInstanceOf(ApiError);
+    });
+});
+
+// ── saveMatchToDb ──────────────────────────────────────────────────────────
+
+describe('saveMatchToDb', () => {
+    test('posts to /game/saveMatch and returns message', async () => {
+        globalThis.fetch = mockFetchOk({ message: 'saved' });
+
+        const result = await saveMatchToDb({
+            match_id: 'm1',
+            player1id: 'p1@test.com',
+            player2id: 'p2@test.com',
+            result: 'Win',
+            time: 120,
+            moves: [{ x: 1, y: 0, z: 0 }],
+        });
+
+        expect(result.message).toBe('saved');
+        expect(fetch).toHaveBeenCalledWith(
+            expect.stringContaining('/game/saveMatch'),
+            expect.objectContaining({ method: 'POST' })
+        );
+    });
+
+    test('throws ApiError on server error', async () => {
+        globalThis.fetch = mockFetchError(500);
+
+        await expect(
+            saveMatchToDb({
+                match_id: 'm1',
+                player1id: 'a',
+                player2id: 'b',
+                result: 'Win',
+                time: 0,
+                moves: [],
+            })
+        ).rejects.toBeInstanceOf(ApiError);
+    });
+});
+
+// ── updateScore ────────────────────────────────────────────────────────────
+
+describe('updateScore', () => {
+    test('posts score update and returns message', async () => {
+        globalThis.fetch = mockFetchOk({ message: 'updated' });
+
+        const result = await updateScore({
+            playerid: 'p1@test.com',
+            username: 'Alice',
+            is_win: true,
+            time: 95,
+        });
+
+        expect(result.message).toBe('updated');
+    });
+
+    test('throws ApiError on 400', async () => {
+        globalThis.fetch = mockFetchError(400, 'Bad Request');
+
+        await expect(
+            updateScore({ playerid: 'x', username: 'y', is_win: false, time: 0 })
+        ).rejects.toBeInstanceOf(ApiError);
+    });
+});
+
+// ── extractOccupiedFromYen ─────────────────────────────────────────────────
+
+describe('extractOccupiedFromYen', () => {
+    test('returns empty array for empty layout', () => {
+        const yen: Yen = { size: 3, layout: '../..' };
+        // All dots → no occupied cells.
+        const result = extractOccupiedFromYen({ size: 3, layout: '.../../.', turn: 0 });
+        expect(result).toHaveLength(0);
+    });
+
+    test('parses a single occupied cell in top-left', () => {
+        // 3-cell board (size=3): first row has one cell
+        // layout row 0 = "B", row 1 = "..", row 2 = "..."
+        const yen: Yen = { size: 3, layout: 'B/../...' };
+        const result = extractOccupiedFromYen(yen);
+        expect(result).toHaveLength(1);
+        expect(result[0].symbol).toBe('B');
+        // row=0,col=0 → x = size-1-row = 2, y = 0, z = row-col = 0
+        expect(result[0]).toMatchObject({ x: 2, y: 0, z: 0 });
+    });
+
+    test('parses mixed B and R cells', () => {
+        // size=2: row 0 = "B", row 1 = "BR"
+        const yen: Yen = { size: 2, layout: 'B/BR' };
+        const result = extractOccupiedFromYen(yen);
+        expect(result).toHaveLength(3);
+        const symbols = result.map((c) => c.symbol).sort();
+        expect(symbols).toEqual(['B', 'B', 'R']);
+    });
+
+    test('returns empty array when layout or size is missing', () => {
+        expect(extractOccupiedFromYen({})).toHaveLength(0);
+        expect(extractOccupiedFromYen({ size: 3 })).toHaveLength(0);
+        expect(extractOccupiedFromYen({ layout: 'B/.' })).toHaveLength(0);
+    });
+
+    test('skips dot cells and only records non-dot characters', () => {
+        const yen: Yen = { size: 3, layout: './R./...' };
+        const result = extractOccupiedFromYen(yen);
+        expect(result).toHaveLength(1);
+        expect(result[0].symbol).toBe('R');
+    });
+});
+
+// ── ApiError ───────────────────────────────────────────────────────────────
+
+describe('ApiError', () => {
+    test('stores status and message', () => {
+        const err = new ApiError(404, 'Not Found');
+        expect(err.status).toBe(404);
+        expect(err.message).toBe('Not Found');
+        expect(err.name).toBe('ApiError');
+        expect(err).toBeInstanceOf(Error);
+    });
+});

@@ -10,10 +10,12 @@ import GameWindowOnline from './components/online/GameWindowOnline';
 import WaitingRoom from './components/online/WaitingRoom';
 import ProtectedRoute from './components/ProtectedRoute';
 import { UserProvider } from './contexts/UserContext';
+import { AudioProvider } from './contexts/AudioContext';
 
 
 function App() {
   return (
+    <AudioProvider>
     <UserProvider>
       <Router>
         <Routes>
@@ -27,6 +29,7 @@ function App() {
         </Routes>
       </Router>
     </UserProvider>
+    </AudioProvider>
   );
 }
 

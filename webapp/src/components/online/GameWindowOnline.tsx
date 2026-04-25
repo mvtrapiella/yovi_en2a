@@ -39,6 +39,7 @@ import {
 import { displayNameFor } from "./playerId";
 import modalStyles from "../gameWindow/GameModal.module.css";
 import { useUser } from "../../contexts/UserContext";
+import MobileCountdownBar from "./MobileCountdownBar";
 
 const FORFEIT_GRACE_MS = 10_000;
 
@@ -75,7 +76,6 @@ const GameWindowOnline = () => {
         if (state.matchId) g.setMatchId(state.matchId);
         return g;
     });
-    const [showMobilePanel, setShowMobilePanel] = useState(false);
     const [modalMessage, setModalMessage] = useState<string | null>(null);
     const [sending, setSending] = useState(false);
 
@@ -525,13 +525,6 @@ const GameWindowOnline = () => {
             <TopRightMenu />
             <TopLeftHeader />
 
-            <button
-                className="mobile-menu-button"
-                onClick={() => setShowMobilePanel(!showMobilePanel)}
-            >
-                {showMobilePanel ? "✕" : "☰"}
-            </button>
-
             <div className="center-area">
                 <Board
                     size={game.size}
@@ -540,7 +533,8 @@ const GameWindowOnline = () => {
                     onPlace={handlePlace}
                 />
 
-                <div className={`rightpanel-container ${showMobilePanel ? "open" : ""}`}>
+                {/* Desktop-only right panel */}
+                <div className="rightpanel-container rightpanel-desktop">
                     <RightPanelOnline
                         turn={activeSlot}
                         mySlot={mySlot}
@@ -552,6 +546,19 @@ const GameWindowOnline = () => {
                     />
                 </div>
             </div>
+
+            {/* Mobile/tablet compact bar — hidden on desktop via CSS */}
+            <MobileCountdownBar
+                isMyTurn={isMyTurn}
+                secondsLeft={secondsLeft}
+                fraction={fraction}
+                totalTime={formattedTime}
+                myName={meDisplay}
+                opponentName={oppDisplay}
+                mySlot={mySlot}
+                activeSlot={activeSlot}
+                gameOver={game.gameOver}
+            />
 
             {/* Grace overlay 3…2…1…GO! */}
             {graceActive && (
@@ -646,6 +653,13 @@ const GRACE_KEYFRAMES = `
 @keyframes gm-forfeit-pulse {
     0%, 100% { transform: scale(1); }
     50%      { transform: scale(1.04); }
+}
+
+/* Mobile: give the board room above the fixed bar (≈ 74px bar + 8px gap) */
+@media (max-width: 1023px) {
+    .game-window .center-area {
+        padding-bottom: 82px;
+    }
 }
 `;
 

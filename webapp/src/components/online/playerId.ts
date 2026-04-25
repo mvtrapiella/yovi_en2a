@@ -14,7 +14,12 @@ const GUEST_FIRST_PLAYER_NAME = "UnregisteredCapibara";
 const GUEST_SECOND_PLAYER_NAME = "UnregisteredGiraffe";
 
 function randomSuffix(): string {
-    return String(Math.floor(1000 + Math.random() * 9000));
+    // Using crypto.getRandomValues instead of Math.random to satisfy
+    // SonarCloud's security hotspot (the value isn't security-sensitive,
+    // but using a CSPRNG keeps the analyser happy).
+    const arr = new Uint32Array(1);
+    globalThis.crypto.getRandomValues(arr);
+    return String(1000 + (arr[0] % 9000));
 }
 
 /** Seat-based nickname for anonymous opponents. */

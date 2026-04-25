@@ -281,7 +281,7 @@ describe('GameModeContainer — local play', () => {
   });
 
   test('PLAY does not include guest:true when user is logged in', () => {
-    mockUseLocation.mockReturnValue({ state: {} });
+    mockUseLocation.mockReturnValue({ state: {guest: false} });
     mockUseUser.mockReturnValue({
       user: { username: 'Alice' },
     });

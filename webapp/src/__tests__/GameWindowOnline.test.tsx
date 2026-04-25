@@ -101,7 +101,7 @@ vi.mock('../components/online/online', () => ({
     saveMatchToDb: (...args: unknown[]) => mockSaveMatchToDb(...args),
     updateScore: (...args: unknown[]) => mockUpdateScore(...args),
     claimForfeit: (...args: unknown[]) => mockClaimForfeit(...args),
-    extractOccupiedFromYen: (...args: unknown[]) => mockExtractOccupiedFromYen(...args),
+    extractOccupiedFromYen: (...args: unknown[]) => mockExtractOccupiedFromYen(...args as []),
 }));
 
 // Import the component AFTER all mocks are set up.
@@ -396,7 +396,7 @@ describe('GameWindowOnline — persist outcome', () => {
 
 describe('GameWindowOnline — redirect guard', () => {
     test('redirects to /gameSelection when matchId is missing from location state', () => {
-        mockUseLocation.mockReturnValue({ state: {} });
+        mockUseLocation.mockReturnValue({ state: {matchId: "", turnNumber: 0, online: true} });
 
         render(<GameWindowOnline />);
 

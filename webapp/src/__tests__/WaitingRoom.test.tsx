@@ -11,7 +11,7 @@ const mockUseParams = vi.fn(() => ({ matchId: 'match-abc' }));
 const mockUseLocation = vi.fn(() => ({
     state: {
         guest: true,
-        role: 'create' as const,
+        role: 'create' as 'create' | 'join',
         turnNumber: 0,
         size: 8,
         isPrivate: false,
@@ -89,8 +89,7 @@ describe('WaitingRoom — creator flow', () => {
                 role: 'create' as const,
                 turnNumber: 0,
                 size: 8,
-                isPrivate: true,
-                password: 'secret',
+                isPrivate: true
             },
         });
 
@@ -143,7 +142,7 @@ describe('WaitingRoom — joiner flow', () => {
             state: {
                 guest: true,
                 role: 'join' as const,
-                turnNumber: 1,
+                turnNumber: 0,
                 size: 8,
                 isPrivate: false,
             },
@@ -266,7 +265,8 @@ describe('WaitingRoom — cancel', () => {
 
 describe('WaitingRoom — redirect guard', () => {
     test('redirects to / when location state is missing', () => {
-        mockUseLocation.mockReturnValue({ state: null });
+
+        mockUseLocation.mockReturnValue({ state: undefined } as never);
 
         const { container } = render(<WaitingRoom />);
 

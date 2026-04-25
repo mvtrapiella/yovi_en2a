@@ -123,14 +123,13 @@ describe('MobileCountdownBar — game over', () => {
 
 describe('MobileCountdownBar — active player', () => {
     test('marks p1 as active when activeSlot is 1', () => {
-        const { container } = render(
+        render(
             <MobileCountdownBar
                 {...defaultProps}
                 mySlot={1}
                 activeSlot={1}
                 myName="Alice"
-                opponentName="Bob"
-            />
+                opponentName="Bob"/>
         );
         const aliceEl = screen.getByText('Alice').closest('.mcb-player');
         expect(aliceEl).toHaveClass('mcb-player--active');

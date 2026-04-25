@@ -27,7 +27,7 @@ const mockFetchOk = (body: unknown) =>
         headers: { get: () => 'application/json' },
         json: async () => body,
         text: async () => JSON.stringify(body),
-    } as any);
+    } as unknown);
 
 const mockFetchError = (status: number, text = 'Error') =>
     vi.fn().mockResolvedValue({
@@ -36,7 +36,7 @@ const mockFetchError = (status: number, text = 'Error') =>
         statusText: text,
         headers: { get: () => 'text/plain' },
         text: async () => text,
-    } as any);
+    } as unknown);
 
 beforeEach(() => {
     vi.restoreAllMocks();
@@ -224,7 +224,7 @@ describe('cancelMatch', () => {
             headers: { get: () => 'application/json' },
             json: async () => ({ cancelled: true }),
             text: async () => '{"cancelled":true}',
-        } as any);
+        } as unknown);
 
         await expect(cancelMatch('m1')).resolves.toBeUndefined();
     });
@@ -336,7 +336,7 @@ describe('updateScore', () => {
 
 describe('extractOccupiedFromYen', () => {
     test('returns empty array for empty layout', () => {
-        const yen: Yen = { size: 3, layout: '../..' };
+        //const yen: Yen = { size: 3, layout: '../..' };
         // All dots → no occupied cells.
         const result = extractOccupiedFromYen({ size: 3, layout: '.../../.', turn: 0 });
         expect(result).toHaveLength(0);

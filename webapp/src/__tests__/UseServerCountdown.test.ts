@@ -117,7 +117,7 @@ describe('useServerCountdown — server sync', () => {
         );
 
         await act(async () => { await Promise.resolve(); });
-        const firstRemaining = result.current.remaining;
+        //const firstRemaining = result.current.remaining;
 
         // Second sync fails.
         vi.spyOn(onlineModule, 'getMatchTurnInfo').mockRejectedValue(new Error('Network down'));

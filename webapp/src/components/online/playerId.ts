@@ -13,12 +13,8 @@ const STORAGE_KEY = "gamey.guestAlias";
 const GUEST_FIRST_PLAYER_NAME = "UnregisteredCapibara";
 const GUEST_SECOND_PLAYER_NAME = "UnregisteredGiraffe";
 
-const crypto = window.crypto;
-const array = new Uint32Array(1);
-crypto.getRandomValues(array);
-
 function randomSuffix(): string {
-    return String(Math.floor(1000 + array[0] * 9000));
+    return String(Math.floor(1000 + Math.random() * 9000));
 }
 
 /** Seat-based nickname for anonymous opponents. */
@@ -28,11 +24,11 @@ export function guestDisplayName(seat: 0 | 1): string {
 
 function loadOrCreateGuestAlias(): string {
     try {
-        const existing = localStorage.getItem(STORAGE_KEY);
+        const existing = globalThis.localStorage.getItem(STORAGE_KEY);
         if (existing) return existing;
 
         const fresh = `UnregisteredGuest#${randomSuffix()}`;
-        localStorage.setItem(STORAGE_KEY, fresh);
+        globalThis.localStorage.setItem(STORAGE_KEY, fresh);
         return fresh;
     } catch {
         return `UnregisteredGuest#${randomSuffix()}`;

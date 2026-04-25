@@ -181,9 +181,8 @@ describe('GameModeContainer — rendering', () => {
 
 describe('GameModeContainer — difficulty selector', () => {
   test('right arrow advances difficulty', () => {
-    render(<GameModeContainer mode={makeNormalMode()} />);
-    // Normal → Hard
-    const arrows = screen.getAllByRole('button').filter(
+    const { container } = render(<GameModeContainer mode={makeNormalMode()} />);
+    const arrows = Array.from(container.querySelectorAll('button')).filter(
         (el) => el.textContent === '→'
     );
     fireEvent.click(arrows[0]);
@@ -191,8 +190,8 @@ describe('GameModeContainer — difficulty selector', () => {
   });
 
   test('left arrow goes back to easier difficulty', () => {
-    render(<GameModeContainer mode={makeNormalMode()} />);
-    const leftArrows = screen.getAllByRole('button').filter(
+    const { container } = render(<GameModeContainer mode={makeNormalMode()} />);
+    const leftArrows = Array.from(container.querySelectorAll('button')).filter(
         (el) => el.textContent === '←'
     );
     fireEvent.click(leftArrows[0]);
@@ -204,8 +203,8 @@ describe('GameModeContainer — difficulty selector', () => {
 
 describe('GameModeContainer — size selector', () => {
   test('right arrow increases size', () => {
-    render(<GameModeContainer mode={makeLocalMode()} />);
-    const arrows = screen.getAllByRole('button').filter(
+    const { container } = render(<GameModeContainer mode={makeLocalMode()} />);
+    const arrows = Array.from(container.querySelectorAll('button')).filter(
         (el) => el.textContent === '→'
     );
     fireEvent.click(arrows[0]);
@@ -213,8 +212,8 @@ describe('GameModeContainer — size selector', () => {
   });
 
   test('left arrow decreases size', () => {
-    render(<GameModeContainer mode={makeLocalMode()} />);
-    const arrows = screen.getAllByRole('button').filter(
+    const { container } = render(<GameModeContainer mode={makeLocalMode()} />);
+    const arrows = Array.from(container.querySelectorAll('button')).filter(
         (el) => el.textContent === '←'
     );
     fireEvent.click(arrows[0]);
@@ -224,25 +223,34 @@ describe('GameModeContainer — size selector', () => {
   test('size cannot go below the minimum (4)', () => {
     const mode = makeLocalMode();
     mode.size = 4;
-    render(<GameModeContainer mode={mode} />);
+    const { container } = render(<GameModeContainer mode={mode} />);
 
-    const leftArrows = screen.getAllByRole('button').filter(
-        (el) => el.textContent === '←'
-    );
-    // Click many times — should stay at 4.
-    for (let i = 0; i < 10; i++) fireEvent.click(leftArrows[0]);
+    // Use querySelectorAll: getAllByRole excludes visibility:hidden buttons,
+    // and at the minimum the ← arrow is hidden but still in the DOM.
+    const leftArrows = Array.from(
+        container.querySelectorAll('button')
+    ).filter((el) => el.textContent === '←');
+
+    // If the arrow is hidden the click is a no-op, but Math.max in the
+    // handler also clamps. Either way size stays at 4.
+    if (leftArrows[0]) {
+      for (let i = 0; i < 10; i++) fireEvent.click(leftArrows[0]);
+    }
     expect(screen.getByText('4')).toBeInTheDocument();
   });
 
   test('size cannot go above the maximum (12)', () => {
     const mode = makeLocalMode();
     mode.size = 12;
-    render(<GameModeContainer mode={mode} />);
+    const { container } = render(<GameModeContainer mode={mode} />);
 
-    const rightArrows = screen.getAllByRole('button').filter(
-        (el) => el.textContent === '→'
-    );
-    for (let i = 0; i < 10; i++) fireEvent.click(rightArrows[0]);
+    const rightArrows = Array.from(
+        container.querySelectorAll('button')
+    ).filter((el) => el.textContent === '→');
+
+    if (rightArrows[0]) {
+      for (let i = 0; i < 10; i++) fireEvent.click(rightArrows[0]);
+    }
     expect(screen.getByText('12')).toBeInTheDocument();
   });
 });

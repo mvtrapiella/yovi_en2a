@@ -5,11 +5,34 @@
  * is shown instead via .rightpanel-desktop.
  */
 
-/* ── Visibility ─────────────────────────────────────────────────────── */
+/* ── Shell ───────────────────────────────────────────────────────────── */
 
-/* Hidden on desktop — shown only on smaller screens */
+/*
+ * Hidden by default (desktop ≥ 1024 px); the @media block below promotes it
+ * to display:flex on smaller screens. All other shell properties (position,
+ * background, etc.) live here in a single rule to keep the selector unique.
+ */
 .mobile-countdown-bar {
     display: none;
+
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 400;
+
+    background: linear-gradient(
+            160deg,
+            rgba(22, 163, 74, 0.18) 0%,
+            #1e211e 70%
+    );
+    border-top: 1.5px solid rgba(74, 222, 128, 0.35);
+    box-shadow: 0 -6px 30px rgba(0, 0, 0, 0.45);
+
+    /* Safe-area bottom for notch devices */
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+
+    transition: border-color 0.2s ease, background 0.25s ease, box-shadow 0.25s ease;
 }
 
 @media (max-width: 1023px) {
@@ -24,35 +47,12 @@
     }
 }
 
-/* ── Shell ───────────────────────────────────────────────────────────── */
-
-.mobile-countdown-bar {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    z-index: 400;
-
-    background: linear-gradient(
-        160deg,
-        rgba(22, 163, 74, 0.18) 0%,
-        #1e211e 70%
-    );
-    border-top: 1.5px solid rgba(74, 222, 128, 0.35);
-    box-shadow: 0 -6px 30px rgba(0, 0, 0, 0.45);
-
-    /* Safe-area bottom for notch devices */
-    padding-bottom: env(safe-area-inset-bottom, 0px);
-
-    transition: border-color 0.2s ease, background 0.25s ease, box-shadow 0.25s ease;
-}
-
 /* Opponent's turn */
 .mobile-countdown-bar.is-theirs {
     background: linear-gradient(
-        160deg,
-        rgba(59, 130, 246, 0.15) 0%,
-        #1e211e 70%
+            160deg,
+            rgba(59, 130, 246, 0.15) 0%,
+            #1e211e 70%
     );
     border-top-color: rgba(96, 165, 250, 0.3);
 }
@@ -61,12 +61,12 @@
 .mobile-countdown-bar.is-critical {
     border-top-color: #ef4444;
     background: linear-gradient(
-        160deg,
-        rgba(239, 68, 68, 0.2) 0%,
-        #1e211e 70%
+            160deg,
+            rgba(239, 68, 68, 0.2) 0%,
+            #1e211e 70%
     );
     box-shadow: 0 -6px 30px rgba(239, 68, 68, 0.3),
-                0 -1px 0 rgba(239, 68, 68, 0.2);
+    0 -1px 0 rgba(239, 68, 68, 0.2);
     animation: mcb-pulse 0.9s ease-in-out infinite;
 }
 

@@ -65,7 +65,7 @@ export interface ExecuteMoveResponse {
 
 export interface MatchStatusResponse {
     match_id: string;
-    status: "waiting" | "active" | "finished" | string;
+    status: "waiting" | "active" | "finished";
     player1id: string;
     player2id: string;
     ready: boolean;

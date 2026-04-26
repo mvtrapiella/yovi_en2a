@@ -233,7 +233,18 @@ jobs:
           distribution: 'temurin'
 
       - name: Wait for services to be ready
-        run: sleep 30
+        run: |
+          echo "Waiting for https://${{ secrets.DEPLOY_HOST }}/api/csrf-token..."
+          for i in $(seq 1 24); do
+            if curl -sf https://${{ secrets.DEPLOY_HOST }}/api/csrf-token > /dev/null; then
+              echo "Service is up after $((i * 5))s"
+              exit 0
+            fi
+            echo "Attempt $i/24 failed, retrying in 5s..."
+            sleep 5
+          done
+          echo "Service did not become ready in time"
+          exit 1
 
       - name: Run Gatling simulations
         run: mvn gatling:test -DbaseUrl=https://${{ secrets.DEPLOY_HOST }}

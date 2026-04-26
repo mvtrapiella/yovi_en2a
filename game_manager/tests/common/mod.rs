@@ -47,8 +47,21 @@ pub async fn test_pool() -> RedisPool {
 
 /// Router wired to a real Redis pool and a bogus Engine URL. Fine for every
 /// online endpoint that does NOT forward to the Engine.
+///
 pub async fn build_test_router() -> Router {
     let pool = test_pool().await;
+
+    // Verify Redis is actually reachable before handing the router to a test.
+    {
+        let mut conn = pool.get().await
+            .expect("Redis pool: failed to get connection — is Redis running?");
+        let pong: String = redis::cmd("PING")
+            .query_async(&mut *conn)
+            .await
+            .expect("Redis PING failed — is Redis running?");
+        assert_eq!(pong, "PONG");
+    }
+
     let state = Arc::new(AppState {
         redis_pool: pool,
         gamey_url: "http://engine.invalid:4000".to_string(),

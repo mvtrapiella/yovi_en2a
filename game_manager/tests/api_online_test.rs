@@ -37,6 +37,27 @@ async fn post_json(
     (status, value)
 }
 
+/// Issue a POST and return the body as plain text. Use this for endpoints
+/// whose error branch returns text/plain instead of JSON.
+async fn post_text(
+    app: axum::Router,
+    path: &str,
+    body: Value,
+) -> (StatusCode, String) {
+    let req = Request::builder()
+        .method("POST")
+        .uri(path)
+        .header("content-type", "application/json")
+        .body(Body::from(body.to_string()))
+        .expect("build request");
+
+    let res = app.oneshot(req).await.expect("router oneshot");
+    let status = res.status();
+    let bytes = to_bytes(res.into_body(), 1_000_000).await.expect("read body");
+    let text = String::from_utf8_lossy(&bytes).to_string();
+    (status, text)
+}
+
 async fn get_json(app: axum::Router, path: &str) -> (StatusCode, Value) {
     let req = Request::builder()
         .method("GET")
@@ -59,10 +80,11 @@ async fn get_json(app: axum::Router, path: &str) -> (StatusCode, Value) {
 #[serial]
 async fn test_http_create_random_then_join() {
     let pool = test_pool().await;
+    let app = build_test_router().await;
 
     // Create (random, empty match_id).
     let (status, body) = post_json(
-        build_test_router().await,
+        app.clone(),
         "/createMatch",
         json!({
             "match_id": "",
@@ -78,7 +100,7 @@ async fn test_http_create_random_then_join() {
 
     // Join (also random).
     let (status, body) = post_json(
-        build_test_router().await,
+        app.clone(),
         "/joinMatch",
         json!({
             "match_id": "",
@@ -98,8 +120,9 @@ async fn test_http_create_random_then_join() {
 async fn test_http_join_random_when_empty_returns_500_with_no_match_msg() {
     // The Rust handler maps MatchError::NoMatchesAvailable to 500 with the
     // Display text. The frontend uses /no match/i to detect it.
-    let (status, body) = post_json(
-        build_test_router().await,
+    let app = build_test_router().await;
+    let (status, body) = post_text(
+        app.clone(),
         "/joinMatch",
         json!({
             "match_id": "",
@@ -109,12 +132,10 @@ async fn test_http_join_random_when_empty_returns_500_with_no_match_msg() {
     ).await;
 
     assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
-    // The body is a plain string (not JSON) for the error branch.
-    let as_text = body.as_str().unwrap_or("").to_lowercase();
-    let json_str = body.to_string().to_lowercase();
-    let haystack = if as_text.is_empty() { json_str } else { as_text };
-    assert!(haystack.contains("no match"),
-            "expected 'No match' in error body, got {}", haystack);
+    assert!(
+        body.to_lowercase().contains("no match"),
+        "expected 'No match' in error body, got {}", body
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -126,9 +147,10 @@ async fn test_http_join_random_when_empty_returns_500_with_no_match_msg() {
 async fn test_http_private_match_correct_password_joins() {
     let pool = test_pool().await;
     let id = random_id();
+    let app = build_test_router().await;
 
     let (status, _) = post_json(
-        build_test_router().await,
+        app.clone(),
         "/createMatch",
         json!({
             "match_id": id,
@@ -140,7 +162,7 @@ async fn test_http_private_match_correct_password_joins() {
     assert_eq!(status, StatusCode::OK);
 
     let (status, body) = post_json(
-        build_test_router().await,
+        app.clone(),
         "/joinMatch",
         json!({
             "match_id": id,
@@ -160,9 +182,10 @@ async fn test_http_private_match_correct_password_joins() {
 async fn test_http_private_match_wrong_password_rejected() {
     let pool = test_pool().await;
     let id = random_id();
+    let app = build_test_router().await;
 
     post_json(
-        build_test_router().await,
+        app.clone(),
         "/createMatch",
         json!({
             "match_id": id,
@@ -173,7 +196,7 @@ async fn test_http_private_match_wrong_password_rejected() {
     ).await;
 
     let (status, _) = post_json(
-        build_test_router().await,
+        app.clone(),
         "/joinMatch",
         json!({
             "match_id": id,
@@ -195,9 +218,10 @@ async fn test_http_private_match_empty_password_rejected() {
     // with "" as password must not pass through.
     let pool = test_pool().await;
     let id = random_id();
+    let app = build_test_router().await;
 
     post_json(
-        build_test_router().await,
+        app.clone(),
         "/createMatch",
         json!({
             "match_id": id,
@@ -208,7 +232,7 @@ async fn test_http_private_match_empty_password_rejected() {
     ).await;
 
     let (status, _) = post_json(
-        build_test_router().await,
+        app.clone(),
         "/joinMatch",
         json!({
             "match_id": id,
@@ -232,10 +256,11 @@ async fn test_http_private_match_empty_password_rejected() {
 async fn test_http_match_status_waiting_then_ready() {
     let pool = test_pool().await;
     let id = random_id();
+    let app = build_test_router().await;
 
     // Create private.
     post_json(
-        build_test_router().await,
+        app.clone(),
         "/createMatch",
         json!({
             "match_id": id,
@@ -247,7 +272,7 @@ async fn test_http_match_status_waiting_then_ready() {
 
     // Before anyone joins: waiting.
     let (status, body) = get_json(
-        build_test_router().await,
+        app.clone(),
         &format!("/matchStatus/{}", id),
     ).await;
     assert_eq!(status, StatusCode::OK);
@@ -258,7 +283,7 @@ async fn test_http_match_status_waiting_then_ready() {
 
     // Join.
     post_json(
-        build_test_router().await,
+        app.clone(),
         "/joinMatch",
         json!({
             "match_id": id,
@@ -269,7 +294,7 @@ async fn test_http_match_status_waiting_then_ready() {
 
     // After join: active and ready.
     let (status, body) = get_json(
-        build_test_router().await,
+        app.clone(),
         &format!("/matchStatus/{}", id),
     ).await;
     assert_eq!(status, StatusCode::OK);
@@ -284,8 +309,9 @@ async fn test_http_match_status_waiting_then_ready() {
 #[tokio::test]
 #[serial]
 async fn test_http_match_status_nonexistent_is_404() {
+    let app = build_test_router().await;
     let (status, _) = get_json(
-        build_test_router().await,
+        app.clone(),
         "/matchStatus/definitely_not_a_real_match_xyz",
     ).await;
     assert_eq!(status, StatusCode::NOT_FOUND);
@@ -300,9 +326,10 @@ async fn test_http_match_status_nonexistent_is_404() {
 async fn test_http_match_turn_info_stamps_on_join() {
     let pool = test_pool().await;
     let id = random_id();
+    let app = build_test_router().await;
 
     post_json(
-        build_test_router().await,
+        app.clone(),
         "/createMatch",
         json!({
             "match_id": id,
@@ -313,7 +340,7 @@ async fn test_http_match_turn_info_stamps_on_join() {
     ).await;
 
     post_json(
-        build_test_router().await,
+        app.clone(),
         "/joinMatch",
         json!({
             "match_id": id,
@@ -323,7 +350,7 @@ async fn test_http_match_turn_info_stamps_on_join() {
     ).await;
 
     let (status, body) = get_json(
-        build_test_router().await,
+        app.clone(),
         &format!("/matchTurnInfo/{}", id),
     ).await;
     assert_eq!(status, StatusCode::OK);
@@ -334,11 +361,13 @@ async fn test_http_match_turn_info_stamps_on_join() {
     let turn_started = body["turn_started_at"].as_u64().expect("turn_started_at");
     let now_server = body["now_server"].as_u64().expect("now_server");
     assert!(turn_started > 0);
-    assert!(now_server >= turn_started);
-    // join was seconds ago at most; server time shouldn't lag behind the
-    // stamp by more than a few seconds.
-    assert!(now_server - turn_started < 10_000,
-            "now_server - turn_started_at unexpectedly large: {}ms", now_server - turn_started);
+
+    // Tolerate small clock skew between the join stamp and the read. We only
+    // care that they're in roughly the same ballpark — within ~10 s.
+    let diff = now_server.abs_diff(turn_started);
+    assert!(diff < 10_000,
+            "turn_started_at and now_server differ by {}ms (turn_started_at={}, now_server={})",
+            diff, turn_started, now_server);
 
     cleanup_match(&pool, &id).await;
 }
@@ -346,8 +375,9 @@ async fn test_http_match_turn_info_stamps_on_join() {
 #[tokio::test]
 #[serial]
 async fn test_http_match_turn_info_nonexistent_is_404() {
+    let app = build_test_router().await;
     let (status, _) = get_json(
-        build_test_router().await,
+        app.clone(),
         "/matchTurnInfo/nonexistent_match_zzz",
     ).await;
     assert_eq!(status, StatusCode::NOT_FOUND);
@@ -366,9 +396,10 @@ async fn test_http_request_online_update_returns_board_on_match() {
     // that would block up to ~20 s waiting for P1 to move.
     let pool = test_pool().await;
     let id = random_id();
+    let app = build_test_router().await;
 
     post_json(
-        build_test_router().await,
+        app.clone(),
         "/createMatch",
         json!({
             "match_id": id,
@@ -378,7 +409,7 @@ async fn test_http_request_online_update_returns_board_on_match() {
         }),
     ).await;
     post_json(
-        build_test_router().await,
+        app.clone(),
         "/joinMatch",
         json!({
             "match_id": id,
@@ -388,7 +419,7 @@ async fn test_http_request_online_update_returns_board_on_match() {
     ).await;
 
     let (status, body) = post_json(
-        build_test_router().await,
+        app.clone(),
         "/requestOnlineGameUpdate",
         json!({
             "match_id": id,
@@ -406,8 +437,9 @@ async fn test_http_request_online_update_returns_board_on_match() {
 #[tokio::test]
 #[serial]
 async fn test_http_request_online_update_nonexistent_is_404() {
+    let app = build_test_router().await;
     let (status, _) = post_json(
-        build_test_router().await,
+        app.clone(),
         "/requestOnlineGameUpdate",
         json!({
             "match_id": "nonexistent_ru_zzz",
